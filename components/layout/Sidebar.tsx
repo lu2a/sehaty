@@ -1,87 +1,114 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { 
+  LayoutDashboard, 
+  FileText, 
+  Calculator, 
+  Users, 
+  Stethoscope, 
+  Menu, 
+  X, 
+  LogOut,
+  Settings,
+  MoreHorizontal
+} from 'lucide-react';
 import { createClient } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 
-export default function Sidebar({ userRole }: { userRole: string }) {
+const MENU_ITEMS = [
+  { name: 'الرئيسية', href: '/dashboard', icon: LayoutDashboard },
+  { name: 'استشاراتي', href: '/consultations', icon: Stethoscope },
+  { name: 'السجلات الطبية', href: '/records', icon: FileText },
+  { name: 'الحاسبات', href: '/calculators', icon: Calculator },
+  { name: 'العائلة', href: '/family', icon: Users },
+  { name: 'الملف الطبي', href: '/medical-file', icon: Settings },
+];
+
+export default function Sidebar() {
+  const [isOpen, setIsOpen] = useState(false); // حالة القائمة للموبايل
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClient();
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    router.push('/');
-    router.refresh();
+    router.push('/login');
   };
 
-  // روابط المريض
-  const clientLinks = [
-    { name: 'رئيسية الملف', href: '/dashboard', icon: '🏠' },
-    { name: 'استشارة جديدة', href: '/consultations/new', icon: '➕' },
-    { name: 'سجل الاستشارات', href: '/consultations', icon: '📂' },
-    { name: 'حاسبات طبية', href: '/calculators', icon: '🧮' },
-    { name: 'أفراد الأسرة', href: '/family', icon: '👨‍👩‍👧‍👦' },
-{ name: 'المواعيد', href: '/appointments', icon: '📅' },
-// داخل clientLinks
-{ name: 'صحة المرأة', href: '/cycle', icon: '🌸' },
-  ];
-
-  // روابط الطبيب
-  const doctorLinks = [
-    { name: 'غرفة الطبيب', href: '/doctor/dashboard', icon: '🩺' },
-    { name: 'الأرشيف الطبي', href: '/doctor/archive', icon: '📚' },
-  ];
-
-  // روابط رئيس القسم والمدير
-  const adminLinks = [
-    { name: 'لوحة الإشراف', href: '/admin/supervision', icon: '🕵️‍♂️' },
-    { name: 'الأطباء', href: '/admin/doctors', icon: '👨‍⚕️' },
-  ];
-
-  // 👇 المنطق المصحح لاختيار القائمة المناسبة
-  let links = clientLinks; // الافتراضي للمريض
-  if (userRole === 'doctor') {
-    links = doctorLinks;
-  } else if (userRole === 'dept_head' || userRole === 'admin') {
-    links = adminLinks;
-  }
+  const toggleMenu = () => setIsOpen(!isOpen);
+  const closeMenu = () => setIsOpen(false);
 
   return (
-    <aside className="hidden md:flex flex-col w-64 bg-white border-l h-screen fixed right-0 top-0 z-40">
-      <div className="p-6 border-b flex items-center gap-2">
-        <div className="w-8 h-8 bg-blue-600 rounded text-white flex items-center justify-center font-bold">AI</div>
-        <h2 className="text-xl font-bold text-blue-900">صحتي</h2>
-      </div>
-
-      <nav className="flex-1 p-4 space-y-2">
-        {links.map((link) => {
-          const isActive = pathname === link.href;
-          return (
-            <Link 
-              key={link.href} 
-              href={link.href}
-              className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                isActive ? 'bg-blue-50 text-blue-700 font-bold' : 'text-gray-600 hover:bg-gray-50'
-              }`}
-            >
-              <span className="text-xl">{link.icon}</span>
-              <span>{link.name}</span>
-            </Link>
-          );
-        })}
-      </nav>
-
-      <div className="p-4 border-t">
+    <>
+      {/* 1. شريط علوي للموبايل فقط (Mobile Header) */}
+      <div className="md:hidden bg-white border-b p-4 flex justify-between items-center sticky top-0 z-50">
+        <div className="font-bold text-xl text-blue-600">Sehaty AI</div>
         <button 
-          onClick={handleLogout}
-          className="flex items-center gap-3 px-4 py-3 w-full text-red-600 hover:bg-red-50 rounded-lg transition"
+          onClick={toggleMenu} 
+          className="p-2 hover:bg-gray-100 rounded-lg text-gray-600"
         >
-          <span>🚪</span>
-          <span>تسجيل خروج</span>
+          {isOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
       </div>
-    </aside>
+
+      {/* 2. القائمة الجانبية (Overlay للموبايل + Sidebar للكمبيوتر) */}
+      <div className={`
+        fixed inset-y-0 right-0 z-40 w-64 bg-white border-l shadow-lg transform transition-transform duration-300 ease-in-out
+        md:translate-x-0 md:static md:h-screen
+        ${isOpen ? 'translate-x-0' : 'translate-x-full'}
+      `}>
+        
+        {/* الشعار (يظهر في الكمبيوتر فقط) */}
+        <div className="hidden md:flex items-center justify-center h-20 border-b">
+          <h1 className="text-2xl font-bold text-blue-600">Sehaty AI</h1>
+        </div>
+
+        {/* روابط القائمة */}
+        <nav className="p-4 space-y-2 overflow-y-auto h-[calc(100vh-140px)]">
+          {MENU_ITEMS.map((item) => {
+            const Icon = item.icon;
+            const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+            
+            return (
+              <Link 
+                key={item.href} 
+                href={item.href}
+                onClick={closeMenu} // إغلاق القائمة عند الضغط على رابط في الموبايل
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-medium ${
+                  isActive 
+                    ? 'bg-blue-50 text-blue-600 shadow-sm' 
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                }`}
+              >
+                <Icon size={20} />
+                <span>{item.name}</span>
+              </Link>
+            );
+          })}
+        </nav>
+
+        {/* زر تسجيل الخروج */}
+        <div className="absolute bottom-0 w-full p-4 border-t bg-gray-50">
+          <button 
+            onClick={handleLogout}
+            className="flex items-center gap-3 px-4 py-3 w-full text-red-600 hover:bg-red-50 rounded-xl transition font-bold"
+          >
+            <LogOut size={20} />
+            <span>تسجيل خروج</span>
+          </button>
+        </div>
+      </div>
+
+      {/* 3. خلفية سوداء شفافة (Overlay) تظهر عند فتح القائمة في الموبايل */}
+      {isOpen && (
+        <div 
+          onClick={closeMenu}
+          className="fixed inset-0 bg-black/50 z-30 md:hidden glass-effect"
+        />
+      )}
+    </>
   );
 }
