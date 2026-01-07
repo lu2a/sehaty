@@ -1,8 +1,9 @@
-import { createServerClient, type CookieOptions } from '@supabase/ssr'
+import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 
-// لاحظ: لا يوجد سطر runtime = edge هنا
+// هذا السطر هو الحل السحري لمشكلة Edge Runtime
+export const runtime = 'nodejs'
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
