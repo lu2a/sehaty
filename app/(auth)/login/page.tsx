@@ -118,13 +118,25 @@ export default function LoginPage() {
             <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
               <h2 className="text-lg font-bold text-gray-800 mb-2">تسجيل الدخول للمرضى</h2>
               
-              <button 
-                 onClick={() => supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: `${location.origin}/auth/callback`, data: { role: 'client' } } })}
-                 className="w-full flex items-center justify-center gap-2 bg-white border border-gray-300 p-3 rounded-lg hover:bg-gray-50 transition text-gray-700 font-medium"
-              >
-                <img src="https://www.svgrepo.com/show/475656/google-color.svg" className="w-5 h-5" alt="Google" />
-                دخول باستخدام Google
-              </button>
+<button 
+   onClick={() => {
+     // نجهز الرابط ونضيف فيه next_role=client
+     const redirectUrl = new URL(`${window.location.origin}/auth/callback`);
+     redirectUrl.searchParams.set('next_role', 'client');
+     
+     supabase.auth.signInWithOAuth({ 
+       provider: 'google', 
+       options: { 
+         redirectTo: redirectUrl.toString()
+         // حذفنا data من هنا
+       } 
+     });
+   }}
+   className="w-full flex items-center justify-center gap-2 bg-white border border-gray-300 p-3 rounded-lg hover:bg-gray-50 transition text-gray-700 font-medium"
+>
+  <img src="https://www.svgrepo.com/show/475656/google-color.svg" className="w-5 h-5" alt="Google" />
+  دخول باستخدام Google
+</button>
 
               <div className="relative flex py-2 items-center">
                 <div className="flex-grow border-t border-gray-200"></div>
