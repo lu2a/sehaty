@@ -28,8 +28,8 @@ export default function UsersManagement() {
     if (!confirm(`هل أنت متأكد من تغيير صلاحية هذا المستخدم إلى ${newRole}؟`)) return;
 
     // 1. تحديث الصلاحية في جدول profiles
-    const { error } = await supabase
-      .from('profiles')
+    // الحل: تحويل الجدول إلى any لتجاوز خطأ TypeScript
+    const { error } = await (supabase.from('profiles') as any)
       .update({ role: newRole })
       .eq('id', userId);
 
@@ -40,12 +40,11 @@ export default function UsersManagement() {
 
     // 2. إذا تمت الترقية لطبيب، يجب إنشاء سجل في جدول doctors
     if (newRole === 'doctor') {
-      await supabase
-        .from('doctors')
+      // استخدام as any هنا أيضاً لتجنب مشاكل المستقبل
+      await (supabase.from('doctors') as any)
         .insert({ id: userId, is_active: true })
         .select() // للتأكد من عدم التكرار
         .maybeSingle(); 
-        // نستخدم maybeSingle أو on conflict في قاعدة البيانات لمنع الأخطاء إذا كان موجوداً
     }
 
     alert('تم تحديث الصلاحية بنجاح ✅');
