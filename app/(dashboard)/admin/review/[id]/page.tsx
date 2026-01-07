@@ -30,7 +30,6 @@ export default function ReviewConsultation() {
       if (consultation) {
         setData(consultation);
         
-        // هام: استخدام safeData لتجاوز فحص TypeScript
         const safeData = consultation as any; 
         
         setRating(safeData.doctor_rate || 0);
@@ -42,16 +41,16 @@ export default function ReviewConsultation() {
   }, [id]);
 
   const handleSaveReview = async () => {
-    // هام: تحويل البيانات لـ any
-    const updatePayload: any = {
+    const updatePayload = {
         doctor_rate: rating,
         consultant_note: consultantNote,
         is_locked: true
     };
 
+    // @ts-ignore
     const { error } = await supabase
       .from('consultations')
-      .update(updatePayload)
+      .update(updatePayload) // هذا السطر هو الذي كان يسبب المشكلة
       .eq('id', id);
 
     if (!error) {
