@@ -30,7 +30,7 @@ export default function ReviewConsultation() {
       if (consultation) {
         setData(consultation);
         
-        // الحل الجذري: تحويل البيانات لمتغير any قبل القراءة
+        // استخدام متغير وسيط لتجاوز تدقيق الأنواع
         const safeData = consultation as any; 
         
         setRating(safeData.doctor_rate || 0);
@@ -42,7 +42,7 @@ export default function ReviewConsultation() {
   }, [id]);
 
   const handleSaveReview = async () => {
-    // تجهيز البيانات كـ any لتجاوز التدقيق
+    // تجهيز البيانات كـ any
     const updatePayload: any = {
         doctor_rate: rating,
         consultant_note: consultantNote,
