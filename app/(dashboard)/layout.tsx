@@ -1,7 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import Sidebar from '@/components/layout/Sidebar'; // تأكد من المسار
+import Sidebar from '@/components/layout/Sidebar'; //  تأكد من المسار
 import BottomNav from '@/components/layout/BottomNav'; // تأكد من المسار
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
