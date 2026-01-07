@@ -2,14 +2,13 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 
-// هذا السطر هو الحل السحري لمشكلة Edge Runtime
-export const runtime = 'nodejs'
+// إجبار الملف على استخدام Node.js بدلاً من Edge لتجنب الأخطاء
+export const runtime = 'nodejs';
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
   
-  // استلام البيانات الإضافية
   const nextRole = searchParams.get('next_role')
   const verifiedNationalId = searchParams.get('verified_national_id')
   
@@ -30,22 +29,11 @@ export async function GET(request: Request) {
     const { data, error } = await supabase.auth.exchangeCodeForSession(code)
     
     if (!error && data.user) {
-      // منطق ربط الطبيب
       if (nextRole === 'doctor' && verifiedNationalId) {
-        
-        await supabase
-          .from('profiles')
-          .update({ role: 'doctor' })
-          .eq('id', data.user.id);
-          
-        await supabase
-          .from('doctors')
-          .update({ id: data.user.id }) 
-          .eq('national_id', verifiedNationalId)
-          .is('id', null); 
+        await supabase.from('profiles').update({ role: 'doctor' }).eq('id', data.user.id);
+        await supabase.from('doctors').update({ id: data.user.id }).eq('national_id', verifiedNationalId).is('id', null); 
       }
       
-      // التوجيه النهائي
       if (nextRole === 'doctor') {
         return NextResponse.redirect(`${origin}/doctor/dashboard`)
       } else {
