@@ -65,7 +65,7 @@ export default function AdminDoctors() {
     }
 
     // 1. تحديث دور المستخدم في profiles (إذا تغير)
-    await supabase.from('profiles').update({ role: formData.role }).eq('id', formData.id);
+await supabase.from('profiles').update({ role: formData.role } as any).eq('id', formData.id);
 
     // 2. الإدراج أو التحديث في جدول doctors
     const updateData: any = {
