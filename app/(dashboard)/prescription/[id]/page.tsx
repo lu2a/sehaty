@@ -4,116 +4,137 @@ import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase';
 import { useParams } from 'next/navigation';
 
-export default function PrescriptionView() {
+export default function PrescriptionA4() {
   const supabase = createClient();
   const params = useParams();
   const id = params.id as string;
   const [rx, setRx] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function getRx() {
-      // جلب الروشتة مع بيانات الطبيب، العيادة، والمريض
-      // تصحيح: استخدام as any
+    // جلب الروشتة باستخدام JOIN لكل الجداول المرتبطة
+    const getData = async () => {
       const { data } = await (supabase.from('prescriptions') as any)
-        .select(`
-          *,
-          doctors (
-            specialty,
-            profiles(full_name),
-            clinics(name, description)
-          ),
-          medical_files (full_name, birth_date, gender)
-        `)
-        .eq('id', id)
-        .single();
-      
-      if (data) setRx(data);
-      setLoading(false);
-    }
-    getRx();
+        .select(`*, doctors(profiles(full_name), specialty), medical_files(*)`)
+        .eq('id', id).single();
+      setRx(data);
+    };
+    getData();
   }, [id]);
 
-  if (loading) return <div className="text-center p-10">جاري تحميل الروشتة...</div>;
-  if (!rx) return <div className="text-center p-10 text-red-500">الروشتة غير موجودة</div>;
+  if (!rx) return <div className="text-center p-10">Loading...</div>;
 
   return (
-    <div className="max-w-3xl mx-auto my-10 bg-white shadow-2xl min-h-[800px] flex flex-col dir-rtl print:shadow-none print:my-0 print:w-full">
-      
-      {/* 1. ترويسة الروشتة (Header) */}
-      <div className="bg-blue-900 text-white p-8 print:bg-white print:text-black print:border-b-2 print:border-black">
-        <div className="flex justify-between items-start">
+    <div className="min-h-screen bg-gray-100 p-4 md:p-10 flex justify-center">
+      {/* ورقة A4 */}
+      <div className="bg-white w-[210mm] min-h-[297mm] shadow-2xl p-10 flex flex-col dir-rtl relative print:shadow-none print:w-full print:h-full print:m-0">
+        
+        {/* Header */}
+        <div className="border-b-4 border-blue-900 pb-4 mb-6 flex justify-between items-end">
           <div>
-            <h1 className="text-3xl font-bold mb-2">{rx.doctors.clinics?.name || 'منصة صحتي AI'}</h1>
-            <h2 className="text-xl">د. {rx.doctors.profiles.full_name}</h2>
-            <p className="opacity-80 mt-1">{rx.doctors.specialty}</p>
+            <h1 className="text-3xl font-bold text-blue-900">منصة صحتي الطبية</h1>
+            <p className="text-gray-500">Sehaty AI Medical Platform</p>
           </div>
           <div className="text-left">
-            <div className="w-20 h-20 bg-white/10 rounded-full flex items-center justify-center text-4xl print:border print:text-black">
-              ⚕️
+            <h2 className="text-xl font-bold">د. {rx.doctors.profiles.full_name}</h2>
+            <p className="text-gray-600">{rx.doctors.specialty}</p>
+          </div>
+        </div>
+
+        {/* Patient Info */}
+        <div className="flex justify-between bg-gray-50 p-4 rounded-lg border mb-8">
+          <div>
+            <span className="text-gray-500 text-sm block">المريض:</span>
+            <span className="font-bold text-lg">{rx.medical_files.full_name}</span>
+          </div>
+          <div>
+            <span className="text-gray-500 text-sm block">التاريخ:</span>
+            <span className="font-bold">{new Date(rx.created_at).toLocaleDateString('ar-EG')}</span>
+          </div>
+          <div>
+             <span className="text-gray-500 text-sm block">التشخيص:</span>
+             <span className="font-bold text-blue-800">{rx.diagnosis || 'غير محدد'}</span>
+          </div>
+        </div>
+
+        {/* Body Content */}
+        <div className="flex-1 space-y-8">
+          
+          {/* Drugs */}
+          {rx.drugs_list?.length > 0 && (
+            <div>
+              <h3 className="text-2xl font-serif italic text-gray-400 border-b mb-4">Rx</h3>
+              <ul className="space-y-4">
+                {rx.drugs_list.map((drug: any, i: number) => (
+                  <li key={i} className="flex justify-between items-center border-b border-dashed pb-2">
+                    <div>
+                      <span className="font-bold text-lg block">{drug.name} <small className="text-gray-500">{drug.concentration}</small></span>
+                      <span className="text-sm text-gray-600">{drug.form} - {drug.freq}</span>
+                    </div>
+                    <span className="bg-gray-100 px-2 py-1 rounded text-sm font-bold">لمدة {drug.duration}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
+          )}
+
+          {/* Labs & Radiology */}
+          {(rx.labs_list?.length > 0 || rx.radiology_list?.length > 0) && (
+            <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+              <h4 className="font-bold text-yellow-800 mb-2">طلب فحوصات</h4>
+              <ul className="list-disc list-inside">
+                {rx.labs_list?.map((l: string) => <li key={l}>تحليل: {l}</li>)}
+                {rx.radiology_list?.map((r: string) => <li key={r}>أشعة: {r}</li>)}
+              </ul>
+            </div>
+          )}
+
+          {/* Education & Red Flags */}
+          <div className="grid grid-cols-2 gap-4">
+             {rx.education_list?.length > 0 && (
+               <div>
+                 <h4 className="font-bold text-green-700 mb-2">💡 تعليمات هامة</h4>
+                 <ul className="text-sm list-disc list-inside text-gray-700">
+                   {rx.education_list.map((e: string, i: number) => <li key={i}>{e}</li>)}
+                 </ul>
+               </div>
+             )}
+             {rx.red_flags_list?.length > 0 && (
+               <div>
+                 <h4 className="font-bold text-red-700 mb-2">🚩 علامات خطر</h4>
+                 <ul className="text-sm list-disc list-inside text-red-600 font-bold">
+                   {rx.red_flags_list.map((e: string, i: number) => <li key={i}>{e}</li>)}
+                 </ul>
+               </div>
+             )}
           </div>
+
         </div>
-      </div>
 
-      {/* 2. بيانات المريض */}
-      <div className="p-8 border-b">
-        <div className="flex justify-between text-sm">
-          <p><span className="font-bold text-gray-500">اسم المريض:</span> {rx.medical_files.full_name}</p>
-          <p><span className="font-bold text-gray-500">التاريخ:</span> {new Date(rx.created_at).toLocaleDateString('ar-EG')}</p>
-          <p><span className="font-bold text-gray-500">العمر:</span> {new Date().getFullYear() - new Date(rx.medical_files.birth_date).getFullYear()} سنة</p>
-        </div>
-      </div>
-
-      {/* 3. جسم الروشتة (الأدوية) */}
-      <div className="p-8 flex-1">
-        <div className="text-6xl font-serif text-gray-300 mb-6 italic print:text-black">Rx</div>
-        
-        <ul className="space-y-6">
-          {rx.drugs_list?.map((drug: any, index: number) => (
-            <li key={index} className="border-b border-dashed pb-4 last:border-0">
-              <div className="flex justify-between items-end mb-1">
-                <h3 className="font-bold text-xl text-black">{drug.drug_name}</h3>
-                <span className="text-sm font-bold bg-gray-100 px-2 rounded">{drug.concentration}</span>
-              </div>
-              <p className="text-gray-600">{drug.dose} - {drug.frequency} - لمدة {drug.duration}</p>
-              {drug.notes && <p className="text-sm text-gray-500 mt-1 italic">({drug.notes})</p>}
-            </li>
-          ))}
-        </ul>
-
-        {rx.notes && (
-          <div className="mt-10 p-4 bg-yellow-50 rounded border border-yellow-100 print:border print:bg-transparent">
-            <h4 className="font-bold text-sm mb-1">ملاحظات الطبيب:</h4>
-            <p className="text-gray-700">{rx.notes}</p>
-          </div>
-        )}
-      </div>
-
-      {/* 4. التذييل (Footer) */}
-      <div className="p-8 mt-auto border-t bg-gray-50 print:bg-white">
-        <div className="flex justify-between items-end">
+        {/* Footer */}
+        <div className="mt-auto pt-8 border-t flex justify-between items-end">
+          {rx.follow_up_date && (
+            <div className="bg-blue-100 text-blue-800 px-4 py-2 rounded-lg font-bold">
+              ميعاد الاستشارة القادمة: {new Date(rx.follow_up_date).toLocaleDateString('ar-EG')}
+            </div>
+          )}
           <div className="text-center">
-            <p className="font-serif italic mb-4 text-gray-400">التوقيع</p>
-            <div className="h-0.5 w-32 bg-gray-300"></div>
-          </div>
-          <div className="text-left text-xs text-gray-400">
-             <p>تم الإصدار إلكترونياً عبر منصة صحتي</p>
-             <p>رقم الروشتة: {rx.id.slice(0, 8)}</p>
+            <div className="h-16 w-32 mb-2 flex items-end justify-center">
+               {/* هنا يمكن وضع صورة التوقيع الإلكتروني */}
+               <span className="font-handwriting text-2xl text-blue-900">{rx.doctors.profiles.full_name}</span>
+            </div>
+            <p className="text-xs text-gray-400 border-t pt-1 w-32 mx-auto">توقيع الطبيب</p>
           </div>
         </div>
-      </div>
 
-      {/* زر الطباعة (يختفي عند الطباعة) */}
-      <div className="p-6 text-center print:hidden bg-gray-800 text-white mt-4">
+        {/* Print Button (Hidden when printing) */}
         <button 
-          onClick={() => window.print()} 
-          className="bg-white text-gray-900 px-8 py-3 rounded-full font-bold hover:bg-gray-100 shadow-lg flex items-center gap-2 mx-auto"
+          onClick={() => window.print()}
+          className="absolute top-4 left-4 bg-gray-900 text-white px-6 py-2 rounded-full shadow-lg hover:bg-black print:hidden"
         >
-          <span>🖨️</span> طباعة الروشتة / حفظ PDF
+          🖨️ طباعة
         </button>
-      </div>
 
+      </div>
     </div>
   );
 }
