@@ -2,7 +2,7 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
-import BottomNav from '@/components/BottomNav'; // تأكد من استيراد الملف الجديد
+import BottomNav from '@/components/layout/BottomNav'; // تأكد من استيراد الملف الجديد
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const cookieStore = cookies();
