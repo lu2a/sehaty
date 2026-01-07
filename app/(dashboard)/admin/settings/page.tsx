@@ -17,7 +17,11 @@ export default function AdminSettings() {
   };
 
   const handleUpdate = async (key: string, value: string) => {
-    const { error } = await supabase.from('system_settings').update({ value }).eq('key', key);
+    // الحل هنا: تحويل الجدول إلى any لتجاوز خطأ never
+    const { error } = await (supabase.from('system_settings') as any)
+      .update({ value })
+      .eq('key', key);
+
     if (!error) alert('تم الحفظ');
   };
 
