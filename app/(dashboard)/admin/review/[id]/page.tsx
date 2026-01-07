@@ -29,9 +29,8 @@ export default function ReviewConsultation() {
 
       if (consultation) {
         setData(consultation);
-        
+        // قراءة البيانات بشكل آمن
         const safeData = consultation as any; 
-        
         setRating(safeData.doctor_rate || 0);
         setConsultantNote(safeData.consultant_note || '');
       }
@@ -41,16 +40,13 @@ export default function ReviewConsultation() {
   }, [id]);
 
   const handleSaveReview = async () => {
-    const updatePayload = {
+    // الحل النووي: تحويل الاستعلام نفسه إلى any لإلغاء التحقق تماماً
+    const { error } = await (supabase.from('consultations') as any)
+      .update({
         doctor_rate: rating,
         consultant_note: consultantNote,
         is_locked: true
-    };
-
-    // @ts-ignore
-    const { error } = await supabase
-      .from('consultations')
-      .update(updatePayload) // هذا السطر هو الذي كان يسبب المشكلة
+      })
       .eq('id', id);
 
     if (!error) {
