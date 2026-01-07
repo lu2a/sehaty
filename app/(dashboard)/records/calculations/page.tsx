@@ -12,8 +12,8 @@ export default function SavedCalculations() {
       const { data: { user } } = await supabase.auth.getUser();
       if(!user) return;
       
-      const { data } = await supabase
-        .from('saved_calculations')
+      // تصحيح: استخدام as any
+      const { data } = await (supabase.from('saved_calculations') as any)
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
