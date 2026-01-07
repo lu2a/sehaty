@@ -38,7 +38,8 @@ export default function MedicalCalculators() {
     setLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
     
-    const { error } = await supabase.from('saved_calculations').insert({
+    // الحل هنا: استخدام as any لتجاوز خطأ TypeScript
+    const { error } = await (supabase.from('saved_calculations') as any).insert({
       user_id: user?.id,
       title,
       result,
