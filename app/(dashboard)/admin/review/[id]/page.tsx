@@ -3,129 +3,113 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase';
 import { useParams, useRouter } from 'next/navigation';
-import ChatArea from '@/components/consultation/ChatArea';
 
 export default function ReviewConsultation() {
   const supabase = createClient();
   const params = useParams();
   const router = useRouter();
   const id = params.id as string;
-  
+
   const [data, setData] = useState<any>(null);
   const [rating, setRating] = useState(0);
   const [consultantNote, setConsultantNote] = useState('');
-  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function load() {
+    async function getData() {
       const { data: consultation } = await supabase
         .from('consultations')
-        .select(`*, medical_files(*), doctors(profiles(full_name))`)
+        .select(`
+          *,
+          medical_files (full_name),
+          doctors (profiles(full_name))
+        `)
         .eq('id', id)
         .single();
-      
+
       if (consultation) {
         setData(consultation);
-        setRating(consultation.doctor_rate || 0);
-        setConsultantNote(consultation.consultant_note || '');
+        // استخدام as any لتجاوز خطأ TypeScript
+        setRating((consultation as any).doctor_rate || 0);
+        setConsultantNote((consultation as any).consultant_note || '');
       }
+      setLoading(false);
     }
-    load();
+    getData();
   }, [id]);
 
-  const handleSaveEvaluation = async () => {
-    setSaving(true);
+  const handleSaveReview = async () => {
     const { error } = await supabase
       .from('consultations')
       .update({
         doctor_rate: rating,
-        consultant_note: consultantNote
-      })
+        consultant_note: consultantNote,
+        is_locked: true // إغلاق الاستشارة بعد المراجعة
+      } as any) // as any هنا أيضاً للاحتياط
       .eq('id', id);
 
     if (!error) {
-      alert('تم حفظ التقييم بنجاح ✅');
-      router.push('/admin/supervision');
+      alert('تم حفظ المراجعة بنجاح ✅');
+      router.push('/admin/consultations');
     } else {
       alert(error.message);
     }
-    setSaving(false);
   };
 
-  if (!data) return <div>جاري التحميل...</div>;
+  if (loading) return <div className="p-10 text-center">جاري التحميل...</div>;
+  if (!data) return <div className="p-10 text-center">الاستشارة غير موجودة</div>;
 
   return (
-    <div className="flex flex-col lg:flex-row h-screen bg-gray-50 dir-rtl">
+    <div className="p-6 dir-rtl max-w-3xl mx-auto">
+      <h1 className="text-2xl font-bold mb-6 text-blue-900">مراجعة وتقييم الاستشارة</h1>
       
-      {/* 1. عرض تفاصيل الاستشارة (أرشيف) */}
-      <div className="w-full lg:w-2/3 p-6 overflow-y-auto">
-        <h1 className="text-2xl font-bold mb-4">مراجعة الاستشارة # {id.slice(0,6)}</h1>
-        
-        {/* بيانات المريض والطبيب */}
-        <div className="bg-white p-4 rounded-lg shadow mb-4 grid grid-cols-2 gap-4">
-          <div>
-            <span className="text-gray-500 text-sm">المريض</span>
-            <p className="font-bold">{data.medical_files.full_name}</p>
-          </div>
-          <div>
-            <span className="text-gray-500 text-sm">الطبيب المعالج</span>
-            <p className="font-bold text-blue-700">{data.doctors?.profiles?.full_name || '---'}</p>
-          </div>
+      <div className="bg-white p-6 rounded-xl shadow mb-6 border">
+        <div className="flex justify-between mb-4">
+           <div>
+             <span className="text-gray-500 text-sm">الطبيب المعالج</span>
+             <p className="font-bold">{data.doctors?.profiles?.full_name}</p>
+           </div>
+           <div>
+             <span className="text-gray-500 text-sm">المريض</span>
+             <p className="font-bold">{data.medical_files?.full_name}</p>
+           </div>
         </div>
-
-        {/* أرشيف المحادثة (للقراءة فقط) */}
-        <div className="bg-white rounded-lg shadow border p-4 h-[500px] overflow-hidden relative">
-          <div className="absolute top-0 left-0 right-0 bg-yellow-100 text-yellow-800 text-center text-xs p-1 z-10">
-            وضع المراجعة (للقراءة فقط)
-          </div>
-          {/* نمرر معرف المستخدم كـ 'admin' لكي لا تظهر رسائله كأنها رسائل الطبيب */}
-          <ChatArea consultationId={id} currentUserId="admin-viewer" />
+        <div className="bg-gray-50 p-4 rounded text-sm mb-4">
+          <strong>تشخيص الطبيب:</strong>
+          <p className="mt-1">{data.diagnosis || 'لم يتم تسجيل تشخيص'}</p>
         </div>
       </div>
 
-      {/* 2. لوحة التقييم (على اليسار) */}
-      <div className="w-full lg:w-1/3 bg-white border-r p-6 shadow-xl">
-        <h2 className="text-xl font-bold text-blue-900 mb-6">📝 تقييم الأداء</h2>
+      <div className="bg-yellow-50 p-6 rounded-xl shadow border border-yellow-200">
+        <h3 className="font-bold text-lg mb-4 text-yellow-800">تقييم الجودة (للمشرفين)</h3>
         
-        <div className="space-y-6">
-          {/* النجوم */}
-          <div>
-            <label className="block font-bold mb-2">تقييم الطبيب</label>
-            <div className="flex gap-2 text-2xl">
-              {[1, 2, 3, 4, 5].map((star) => (
-                <button 
-                  key={star} 
-                  onClick={() => setRating(star)}
-                  className={`transition hover:scale-110 ${rating >= star ? 'text-yellow-400' : 'text-gray-300'}`}
-                >
-                  ★
-                </button>
-              ))}
-            </div>
-            <p className="text-sm text-gray-500 mt-1">
-              {rating === 5 ? 'ممتاز' : rating === 1 ? 'سيء جداً' : rating > 0 ? 'تم التحديد' : 'لم يتم التقييم'}
-            </p>
+        <div className="mb-4">
+          <label className="block font-bold mb-2">تقييم أداء الطبيب (من 5)</label>
+          <div className="flex gap-2 text-2xl cursor-pointer">
+            {[1, 2, 3, 4, 5].map((star) => (
+              <span key={star} onClick={() => setRating(star)}>
+                {star <= rating ? '⭐' : '☆'}
+              </span>
+            ))}
           </div>
-
-          {/* الملاحظات */}
-          <div>
-            <label className="block font-bold mb-2">ملاحظات الاستشاري / رئيس القسم</label>
-            <textarea
-              className="w-full p-3 border rounded-lg h-40 focus:ring-2 focus:ring-blue-500 bg-gray-50"
-              placeholder="اكتب ملاحظاتك للطبيب هنا (ستظهر له في التقرير الشهري)..."
-              value={consultantNote}
-              onChange={(e) => setConsultantNote(e.target.value)}
-            />
-          </div>
-
-          <button
-            onClick={handleSaveEvaluation}
-            disabled={saving}
-            className="w-full bg-blue-900 text-white py-3 rounded-lg font-bold hover:bg-blue-800 shadow-lg"
-          >
-            {saving ? 'جاري الحفظ...' : 'حفظ التقييم وإغلاق المراجعة'}
-          </button>
         </div>
+
+        <div className="mb-4">
+          <label className="block font-bold mb-2">ملاحظات المشرف / الاستشاري</label>
+          <textarea 
+            className="w-full p-3 border rounded-lg h-24"
+            placeholder="اكتب ملاحظاتك للطبيب هنا..."
+            value={consultantNote}
+            onChange={(e) => setConsultantNote(e.target.value)}
+          />
+        </div>
+
+        <button 
+          onClick={handleSaveReview}
+          className="w-full bg-yellow-600 text-white py-3 rounded-lg font-bold hover:bg-yellow-700"
+        >
+          حفظ التقييم وإغلاق المراجعة
+        </button>
       </div>
     </div>
   );
