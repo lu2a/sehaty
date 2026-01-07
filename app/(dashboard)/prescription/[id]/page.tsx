@@ -14,8 +14,8 @@ export default function PrescriptionView() {
   useEffect(() => {
     async function getRx() {
       // جلب الروشتة مع بيانات الطبيب، العيادة، والمريض
-      const { data } = await supabase
-        .from('prescriptions')
+      // تصحيح: استخدام as any
+      const { data } = await (supabase.from('prescriptions') as any)
         .select(`
           *,
           doctors (
