@@ -35,7 +35,8 @@ export default function ConsultationDetail() {
         .eq('consultation_id', id)
         .single();
       
-      if (rx) setPrescriptionId(rx.id);
+      // الحل هنا: استخدام (rx as any) لتجاوز خطأ TypeScript
+      if (rx) setPrescriptionId((rx as any).id);
     }
     load();
   }, [id]);
@@ -70,7 +71,7 @@ export default function ConsultationDetail() {
             href={`/prescription/${prescriptionId}`} 
             className="bg-green-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-green-700 transition shadow"
           >
-            عرض وطباعة الوصفة
+            عرض وطباعة الوصفة/page.tsx]
           </Link>
         </div>
       )}
