@@ -29,7 +29,9 @@ export default function ReviewConsultation() {
 
       if (consultation) {
         setData(consultation);
-        // التعديل هنا: استخدام as any
+        
+        // التعديل الهام هنا: (consultation as any)
+        // هذا يجبر TypeScript على تجاهل فحص النوع لهذه السطور
         setRating((consultation as any).doctor_rate || 0);
         setConsultantNote((consultation as any).consultant_note || '');
       }
@@ -39,7 +41,7 @@ export default function ReviewConsultation() {
   }, [id]);
 
   const handleSaveReview = async () => {
-    // التعديل هنا: استخدام as any في التحديث أيضاً
+    // التعديل الهام هنا أيضاً: as any للكائن المرسل
     const { error } = await supabase
       .from('consultations')
       .update({
