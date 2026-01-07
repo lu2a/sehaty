@@ -34,9 +34,10 @@ export async function middleware(request: NextRequest) {
           })
         },
         remove(name: string, options: CookieOptions) {
+          // التصحيح هنا: تعيين القيمة إلى نص فارغ بدلاً من استخدام متغير غير معرف
           request.cookies.set({
             name,
-            value,
+            value: '', 
             ...options,
           })
           response = NextResponse.next({
