@@ -65,7 +65,8 @@ export default function AdminDoctors() {
     }
 
     // 1. تحديث دور المستخدم في profiles (إذا تغير)
-await supabase.from('profiles').update({ role: formData.role } as any).eq('id', formData.id);
+    // @ts-ignore
+    await supabase.from('profiles').update({ role: formData.role }).eq('id', formData.id);
 
     // 2. الإدراج أو التحديث في جدول doctors
     const updateData: any = {
@@ -88,6 +89,7 @@ await supabase.from('profiles').update({ role: formData.role } as any).eq('id', 
         updateData.secret_code = formData.secret_code;
     }
 
+    // @ts-ignore
     const { error } = await supabase.from('doctors').upsert(updateData);
 
     if (!error) {
