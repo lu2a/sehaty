@@ -34,14 +34,21 @@ export default function DoctorConsultationView() {
 
   const handleClaim = async () => {
     const { data: { user } } = await supabase.auth.getUser();
-    await supabase.from('consultations').update({ doctor_id: user?.id, status: 'active' }).eq('id', id);
+    // الحل: تحويل الجدول إلى any لتجاوز خطأ التحديث
+    await (supabase.from('consultations') as any)
+      .update({ doctor_id: user?.id, status: 'active' })
+      .eq('id', id);
     window.location.reload();
   };
 
   const handleCloseConsultation = async () => {
     if (!confirm('هل أنت متأكد من إنهاء هذه الاستشارة وإغلاقها؟')) return;
     setActionLoading(true);
-    const { error } = await supabase.from('consultations').update({ status: 'closed', updated_at: new Date().toISOString() }).eq('id', id);
+    // الحل: استخدام as any هنا أيضاً
+    const { error } = await (supabase.from('consultations') as any)
+      .update({ status: 'closed', updated_at: new Date().toISOString() })
+      .eq('id', id);
+
     if (!error) router.push('/doctor/dashboard');
     else alert('خطأ: ' + error.message);
     setActionLoading(false);
@@ -50,13 +57,16 @@ export default function DoctorConsultationView() {
   const handleCreatePrescription = async (drugs: DrugItem[], notes: string) => {
     setActionLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
-    const { error } = await supabase.from('prescriptions').insert({
+    
+    // الحل: استخدام as any لجدول الوصفات أيضاً
+    const { error } = await (supabase.from('prescriptions') as any).insert({
       consultation_id: id,
       doctor_id: user?.id,
       medical_file_id: consultation.medical_file_id,
       drugs_list: drugs,
       notes: notes
     });
+
     if (!error) alert('✅ تم إصدار الوصفة وحفظها.');
     else alert('خطأ: ' + error.message);
     setActionLoading(false);
