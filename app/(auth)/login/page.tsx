@@ -54,22 +54,24 @@ export default function LoginPage() {
     setLoading(false);
   };
 
-  // 3. دالة دخول الطبيب (بعد التحقق) - نستخدم جوجل للسهولة
+// 3. دالة دخول الطبيب (بعد التحقق) - نستخدم جوجل للسهولة
   const handleDoctorGoogleLogin = async () => {
     setLoading(true);
+    
+    // نجهز الرابط ونضيف البيانات فيه كـ Query Params
+    const redirectUrl = new URL(`${window.location.origin}/auth/callback`);
+    redirectUrl.searchParams.set('next_role', 'doctor'); // سميناها next_role لتمييزها
+    redirectUrl.searchParams.set('verified_national_id', nationalId);
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${location.origin}/auth/callback`,
+        redirectTo: redirectUrl.toString(), // نمرر الرابط المعدل
         queryParams: {
           access_type: 'offline',
           prompt: 'consent',
         },
-        // مهم جداً: نرسل بيانات الطبيب ليتم ربطها في الـ Callback
-        data: { 
-            role: 'doctor',
-            verified_national_id: nationalId 
-        } 
+        // قمنا بحذف data من هنا لأنها سبب الخطأ
       },
     });
     if (error) setErrorMsg(error.message);
