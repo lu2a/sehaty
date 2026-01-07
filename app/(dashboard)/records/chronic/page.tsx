@@ -26,15 +26,17 @@ export default function ChronicLog() {
     const { data: members } = await supabase.from('medical_files').select('id, full_name').eq('user_id', user.id);
     if (members) {
         setFamilyMembers(members);
-        if(members.length > 0) setSelectedMember(members[0].id); // اختيار الأول افتراضياً
+        // تصحيح: استخدام as any للوصول للخاصية id
+        if(members.length > 0) setSelectedMember((members[0] as any).id); 
     }
 
     // 2. جلب السجلات
-    const { data: logData } = await supabase
-      .from('health_log_chronic')
+    // تصحيح: استخدام as any مع الجدول
+    const { data: logData } = await (supabase.from('health_log_chronic') as any)
       .select(`*, medical_files(full_name)`)
       .eq('user_id', user.id)
       .order('measured_at', { ascending: false });
+      
     if (logData) setLogs(logData);
   };
 
@@ -42,7 +44,8 @@ export default function ChronicLog() {
     e.preventDefault();
     const { data: { user } } = await supabase.auth.getUser();
     
-    const { error } = await supabase.from('health_log_chronic').insert({
+    // تصحيح: استخدام as any عند الإدخال
+    const { error } = await (supabase.from('health_log_chronic') as any).insert({
       user_id: user?.id,
       medical_file_id: selectedMember,
       systolic: formData.systolic ? parseInt(formData.systolic) : null,
