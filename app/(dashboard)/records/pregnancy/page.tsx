@@ -30,14 +30,16 @@ export default function PregnancyLog() {
 
     if (members) {
         setFamilyMembers(members);
-        if(members.length > 0) setSelectedMember(members[0].id);
+        // تصحيح: استخدام as any
+        if(members.length > 0) setSelectedMember((members[0] as any).id);
     }
 
-    const { data: logData } = await supabase
-      .from('health_log_pregnancy')
+    // تصحيح: استخدام as any مع الجدول
+    const { data: logData } = await (supabase.from('health_log_pregnancy') as any)
       .select(`*, medical_files(full_name)`)
       .eq('user_id', user.id)
       .order('visit_date', { ascending: false });
+      
     if (logData) setLogs(logData);
   };
 
@@ -45,7 +47,8 @@ export default function PregnancyLog() {
     e.preventDefault();
     const { data: { user } } = await supabase.auth.getUser();
     
-    const { error } = await supabase.from('health_log_pregnancy').insert({
+    // تصحيح: استخدام as any عند الإدخال
+    const { error } = await (supabase.from('health_log_pregnancy') as any).insert({
       user_id: user?.id,
       medical_file_id: selectedMember,
       gestational_week: formData.gestational_week ? parseInt(formData.gestational_week) : null,
