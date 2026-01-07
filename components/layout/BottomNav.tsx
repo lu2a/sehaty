@@ -1,49 +1,118 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { 
+  Home, 
+  Stethoscope, 
+  FileText, 
+  Calculator, 
+  Menu, 
+  X, 
+  Users, 
+  Settings, 
+  LogOut 
+} from 'lucide-react';
+import { createClient } from '@/lib/supabase';
+import { useRouter } from 'next/navigation';
 
-export default function BottomNav({ userRole }: { userRole: string }) {
+export default function BottomNav() {
   const pathname = usePathname();
+  const [isMoreOpen, setIsMoreOpen] = useState(false);
+  const supabase = createClient();
+  const router = useRouter();
 
-  const clientLinks = [
-    { name: 'الرئيسية', href: '/dashboard', icon: '🏠' },
-    { name: 'استشارة', href: '/consultations/new', icon: '➕' },
-    { name: 'سجلاتي', href: '/consultations', icon: '📂' },
-{ name: 'حاسبات طبية', href: '/calculators', icon: '🧮' },
+  // الروابط الرئيسية (تظهر دائماً في الشريط)
+  const mainLinks = [
+    { name: 'الرئيسية', href: '/dashboard', icon: Home },
+    { name: 'استشاراتي', href: '/consultations', icon: Stethoscope },
+    { name: 'السجلات', href: '/records', icon: FileText },
+    { name: 'الحاسبات', href: '/calculators', icon: Calculator },
   ];
 
-  const doctorLinks = [
-    { name: 'الحالات', href: '/doctor/dashboard', icon: '🩺' },
-    { name: 'الأرشيف', href: '/doctor/archive', icon: '📚' },
+  // الروابط الإضافية (تظهر في قائمة "المزيد")
+  const moreLinks = [
+    { name: 'العائلة', href: '/family', icon: Users },
+    { name: 'الملف الطبي', href: '/medical-file', icon: Settings },
   ];
 
-  const links = userRole === 'doctor' ? doctorLinks : clientLinks;
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push('/login');
+  };
 
   return (
-    <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 pb-safe">
-      <div className="flex justify-around items-center h-16">
-        {links.map((link) => {
-          const isActive = pathname === link.href;
+    <>
+      {/* 1. القائمة المنبثقة لزر "المزيد" */}
+      {isMoreOpen && (
+        <div className="fixed inset-0 z-40 bg-black/50 md:hidden" onClick={() => setIsMoreOpen(false)}>
+          <div 
+            className="absolute bottom-20 left-4 right-4 bg-white rounded-2xl shadow-xl p-4 animate-in slide-in-from-bottom-10 fade-in duration-200"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="grid grid-cols-1 gap-2">
+              <h3 className="text-gray-400 text-xs font-bold px-2 mb-1">قوائم إضافية</h3>
+              {moreLinks.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <Link 
+                    key={item.href} 
+                    href={item.href}
+                    onClick={() => setIsMoreOpen(false)}
+                    className="flex items-center gap-3 p-3 hover:bg-gray-50 rounded-xl text-gray-700"
+                  >
+                    <Icon size={20} className="text-blue-600" />
+                    <span className="font-bold">{item.name}</span>
+                  </Link>
+                );
+              })}
+              
+              <div className="border-t my-1"></div>
+              
+              <button 
+                onClick={handleLogout}
+                className="flex items-center gap-3 p-3 hover:bg-red-50 rounded-xl text-red-600 w-full"
+              >
+                <LogOut size={20} />
+                <span className="font-bold">تسجيل خروج</span>
+              </button>
+            </div>
+            
+            {/* سهم صغير يشير للأسفل */}
+            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-white rotate-45"></div>
+          </div>
+        </div>
+      )}
+
+      {/* 2. الشريط السفلي الثابت */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t h-16 flex items-center justify-around z-50 md:hidden pb-safe shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
+        
+        {mainLinks.map((item) => {
+          const Icon = item.icon;
+          const isActive = pathname === item.href;
           return (
             <Link 
-              key={link.href} 
-              href={link.href}
-              className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${
-                isActive ? 'text-blue-600' : 'text-gray-400'
-              }`}
+              key={item.href} 
+              href={item.href} 
+              className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-all ${isActive ? 'text-blue-600' : 'text-gray-400'}`}
             >
-              <span className="text-xl">{link.icon}</span>
-              <span className="text-xs font-medium">{link.name}</span>
+              <Icon size={isActive ? 24 : 22} strokeWidth={isActive ? 2.5 : 2} />
+              <span className="text-[10px] font-bold">{item.name}</span>
             </Link>
           );
         })}
-        {/* زر القائمة الإضافية */}
-        <button className="flex flex-col items-center justify-center w-full h-full space-y-1 text-gray-400">
-          <span className="text-xl">☰</span>
-          <span className="text-xs font-medium">المزيد</span>
+
+        {/* زر المزيد */}
+        <button 
+          onClick={() => setIsMoreOpen(!isMoreOpen)}
+          className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-all ${isMoreOpen ? 'text-blue-600' : 'text-gray-400'}`}
+        >
+          {isMoreOpen ? <X size={22} /> : <Menu size={22} />}
+          <span className="text-[10px] font-bold">المزيد</span>
         </button>
+
       </div>
-    </div>
+    </>
   );
 }
