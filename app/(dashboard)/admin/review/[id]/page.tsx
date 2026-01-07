@@ -29,7 +29,7 @@ export default function ReviewConsultation() {
 
       if (consultation) {
         setData(consultation);
-        // استخدام as any لتجاوز خطأ TypeScript
+        // التعديل هنا: استخدام as any
         setRating((consultation as any).doctor_rate || 0);
         setConsultantNote((consultation as any).consultant_note || '');
       }
@@ -39,13 +39,14 @@ export default function ReviewConsultation() {
   }, [id]);
 
   const handleSaveReview = async () => {
+    // التعديل هنا: استخدام as any في التحديث أيضاً
     const { error } = await supabase
       .from('consultations')
       .update({
         doctor_rate: rating,
         consultant_note: consultantNote,
         is_locked: true // إغلاق الاستشارة بعد المراجعة
-      } as any) // as any هنا أيضاً للاحتياط
+      } as any)
       .eq('id', id);
 
     if (!error) {
