@@ -22,10 +22,12 @@ export default function ClinicsManagement() {
     e.preventDefault();
     if (!newName) return;
 
-    const { error } = await supabase.from('clinics').insert({
-      name: newName,
-      description: newDesc
-    });
+const { error } = await supabase.from('clinics').insert([
+  {
+    name: newName,
+    description: newDesc
+  }
+] as any); // <--- أضفنا هذا للإجبار
 
     if (!error) {
       setNewName('');
