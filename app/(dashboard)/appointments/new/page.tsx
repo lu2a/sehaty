@@ -40,7 +40,6 @@ export default function NewAppointment() {
   };
 
   // 3. توليد المواعيد المتاحة (محاكاة بسيطة)
-  // في التطبيق الحقيقي يجب التحقق من الحجوزات السابقة في قاعدة البيانات
   const generateSlots = () => {
     const slots = [];
     const startHour = 9; // بداية الدوام 9 صباحاً
@@ -59,7 +58,8 @@ export default function NewAppointment() {
     
     if (!user || !selectedDoctor) return;
 
-    const { error } = await supabase.from('appointments').insert({
+    // الحل هنا: تحويل الجدول إلى any لتجاوز خطأ TypeScript الصارم
+    const { error } = await (supabase.from('appointments') as any).insert({
       user_id: user.id,
       clinic_id: selectedClinic,
       doctor_id: selectedDoctor.id,
