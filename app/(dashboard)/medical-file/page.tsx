@@ -19,8 +19,8 @@ export default function MyMedicalFile() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const { data } = await supabase
-      .from('medical_files')
+    // الحل هنا: تحويل الجدول إلى any
+    const { data } = await (supabase.from('medical_files') as any)
       .select('*')
       .eq('user_id', user.id)
       .eq('relation', 'self') // نتأكد أنه ملفه الشخصي
