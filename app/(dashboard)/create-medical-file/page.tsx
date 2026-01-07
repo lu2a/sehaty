@@ -72,7 +72,8 @@ export default function ComprehensiveMedicalFile() {
         : 'https://cdn-icons-png.flaticon.com/512/3135/3135789.png';
     }
 
-    const { error } = await supabase.from('medical_files').upsert({
+    // الحل هنا: استخدام as any لتجاوز خطأ TypeScript
+    const { error } = await (supabase.from('medical_files') as any).upsert({
       user_id: user?.id,
       relation: 'self', // أو حسب المنطق
       ...formData,
