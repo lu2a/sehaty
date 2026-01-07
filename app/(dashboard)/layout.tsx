@@ -1,8 +1,7 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import Sidebar from '@/components/layout/Sidebar';
-import BottomNav from '@/components/layout/BottomNav';
+import Sidebar from '@/components/Sidebar'; // تأكد أن المسار صحيح حسب مكان الملف
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const cookieStore = cookies();
@@ -24,7 +23,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
     redirect('/login');
   }
 
-  // 2. معرفة دور المستخدم (طبيب أم مريض)
+  // 2. معرفة دور المستخدم (يمكنك تمرير هذا للسايدبار لاحقاً إذا أردت تخصيص الروابط)
   const { data: profile } = await supabase
     .from('profiles')
     .select('role')
@@ -34,19 +33,20 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const userRole = profile?.role || 'client';
 
   return (
-    <div className="min-h-screen bg-gray-50 dir-rtl">
-      {/* القائمة الجانبية للكمبيوتر */}
-      <Sidebar userRole={userRole} />
+    // استخدام Flexbox لتقسيم الشاشة
+    <div className="flex flex-col md:flex-row min-h-screen bg-slate-50 dir-rtl font-cairo">
+      
+      {/* القائمة الجانبية (ثابتة في الكمبيوتر، منسدلة في الموبايل) */}
+      {/* ملاحظة: قمنا بتضمين شريط الموبايل داخل هذا المكون */}
+      <Sidebar />
 
       {/* المحتوى الرئيسي */}
-      <main className="md:mr-64 pb-20 md:pb-0 transition-all duration-200">
-        <div className="max-w-5xl mx-auto">
+      <main className="flex-1 w-full overflow-y-auto h-screen p-4 md:p-8">
+        <div className="max-w-6xl mx-auto">
           {children}
         </div>
       </main>
 
-      {/* القائمة السفلية للموبايل */}
-      <BottomNav userRole={userRole} />
     </div>
   );
 }
