@@ -16,8 +16,8 @@ export default function FamilyPage() {
   const fetchFamily = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
-      const { data } = await supabase
-        .from('medical_files')
+      // تصحيح: تحويل الجدول لـ any
+      const { data } = await (supabase.from('medical_files') as any)
         .select('*')
         .eq('user_id', user.id)
         .neq('relation', 'self'); // استبعاد الملف الشخصي
