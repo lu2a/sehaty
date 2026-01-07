@@ -26,11 +26,11 @@ export default function PatientHistory() {
           .select('id, created_at, specialty, status, doctor_id, content')
           .eq('medical_file_id', fileId);
 
-        // 3. جلب المواعيد (نحتاج user_id للمواعيد، لذا نجلبها عبر صاحب الملف)
+        // 3. جلب المواعيد (تم التعديل هنا: استخدام as any)
         const { data: appts } = await supabase
           .from('appointments')
           .select('id, appointment_date, appointment_time, specialty, status, doctor_id')
-          .eq('user_id', fileData.user_id);
+          .eq('user_id', (fileData as any).user_id); // <--- الإصلاح هنا
 
         // 4. دمج وتوحيد البيانات
         const combined = [
