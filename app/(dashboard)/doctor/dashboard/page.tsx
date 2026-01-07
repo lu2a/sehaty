@@ -19,11 +19,10 @@ export default function DoctorDashboard() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    // جلب الاستشارات: إما مسندة لي، أو مفتوحة (بدون طبيب)
-    const { data, error } = await supabase
-      .from('consultations')
+    // الحل هنا: تحويل الجدول إلى any لتجنب مشاكل الأنواع
+    const { data, error } = await (supabase.from('consultations') as any)
       .select(`
-        id, created_at, urgency, status, content,
+        id, created_at, urgency, status, content, doctor_id,
         medical_files (full_name, gender, birth_date)
       `)
       .or(`doctor_id.eq.${user.id},doctor_id.is.null`)
@@ -90,13 +89,12 @@ export default function DoctorDashboard() {
               
               <div className="flex gap-4 pr-3">
                 <div className="h-12 w-12 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 font-bold text-lg">
-                   {/* @ts-ignore */}
+                   {/* الآن لن يسبب هذا مشاكل لأننا حولنا البيانات */}
                   {item.medical_files?.full_name[0]}
                 </div>
                 <div>
                   <div className="flex items-center gap-2 mb-1">
                     <h3 className="font-bold text-gray-800 text-lg">
-                       {/* @ts-ignore */}
                       {item.medical_files?.full_name}
                     </h3>
                     {getUrgencyBadge(item.urgency)}
