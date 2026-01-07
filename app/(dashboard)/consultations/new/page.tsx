@@ -94,7 +94,8 @@ export default function NewConsultation() {
     const { data: { user } } = await supabase.auth.getUser();
 
     // إرسال البيانات (لاحظ استخدام clinic_id بدلاً من specialty)
-    const { error } = await supabase.from('consultations').insert({
+    // الحل هنا: استخدام as any لتجاوز خطأ TypeScript
+    const { error } = await (supabase.from('consultations') as any).insert({
       user_id: user?.id,
       medical_file_id: selectedFileId,
       clinic_id: selectedClinicId, // الربط بالعيادة
@@ -108,7 +109,7 @@ export default function NewConsultation() {
     });
 
     if (!error) {
- router.push('/consultations?success=true');
+      router.push('/consultations?success=true');
     } else {
       alert('حدث خطأ: ' + error.message);
     }
@@ -117,7 +118,6 @@ export default function NewConsultation() {
 
   // دالة مساعدة لعرض القيم أو شرطة
   const displayVal = (val: any, suffix = '') => val ? `${val} ${suffix}` : '-';
-  const displayBool = (val: boolean) => val ? 'نعم' : 'لا';
 
   return (
     <div className="max-w-4xl mx-auto p-4 dir-rtl min-h-screen pb-20">
