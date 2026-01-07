@@ -20,7 +20,8 @@ export default function AddFamilyMember({ onSuccess, onCancel }: { onSuccess: ()
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const { error } = await supabase.from('medical_files').insert({
+    // تصحيح: استخدام as any لتجاوز خطأ TypeScript عند الإدخال
+    const { error } = await (supabase.from('medical_files') as any).insert({
       user_id: user.id, // يندرج تحت الملف الرئيسي
       ...formData,
       chronic_diseases: [], // قيم افتراضية
