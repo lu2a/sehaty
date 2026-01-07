@@ -1,0 +1,25 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-rgb: 0, 0, 0;
+  --background-start-rgb: 214, 219, 220;
+  --background-end-rgb: 255, 255, 255;
+}
+
+/* دعم العربية والاتجاه */
+html {
+  direction: rtl;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+body {
+  background: #f8fafc; /* خلفية رمادية فاتحة طبية */
+  color: #1e293b;
+}
+
+/* تحسينات للحقول والمدخلات */
+input, select, textarea {
+  text-align: right;
+}

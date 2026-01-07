@@ -1,0 +1,91 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { createClient } from '@/lib/supabase';
+import AddFamilyMember from '@/components/medical-file/AddFamilyMember'; // سنستخدم المكون الذي بنيناه سابقاً أو نضع الكود هنا
+
+export default function FamilyManagement() {
+  const supabase = createClient();
+  const [members, setMembers] = useState<any[]>([]);
+  const [showAdd, setShowAdd] = useState(false);
+
+  useEffect(() => {
+    fetchFamily();
+  }, []);
+
+  const fetchFamily = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if(!user) return;
+
+    // جلب الجميع ما عدا الملف الرئيسي (self)
+    const { data } = await supabase
+      .from('medical_files')
+      .select('*')
+      .eq('user_id', user.id)
+      .neq('relation', 'self'); // استبعاد "أنا"
+    
+    if(data) setMembers(data);
+  };
+
+  const handleDelete = async (id: string) => {
+    if(!confirm('هل أنت متأكد من حذف هذا الملف؟ سيتم حذف جميع سجلاته المرتبطة!')) return;
+    
+    const { error } = await supabase.from('medical_files').delete().eq('id', id);
+    if(!error) fetchFamily();
+    else alert('حدث خطأ أثناء الحذف');
+  };
+
+  return (
+    <div className="p-6 dir-rtl max-w-4xl mx-auto">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold text-purple-900">👨‍👩‍👧‍👦 ملفات أفراد الأسرة</h1>
+        <button 
+          onClick={() => setShowAdd(true)}
+          className="bg-purple-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-purple-700 shadow"
+        >
+          + إضافة فرد جديد
+        </button>
+      </div>
+
+      {showAdd && (
+        <div className="mb-8 border p-4 rounded-xl bg-gray-50 animate-in fade-in">
+           <h3 className="font-bold mb-2">بيانات الفرد الجديد</h3>
+           {/* نعيد استخدام المكون أو نضع الكود المختصر هنا */}
+           <AddFamilyMember 
+             onSuccess={() => { setShowAdd(false); fetchFamily(); }} 
+             onCancel={() => setShowAdd(false)} 
+           />
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {members.length === 0 && !showAdd && (
+          <p className="text-gray-500 col-span-2 text-center py-10">لا يوجد أفراد مضافين. أضف أبناءك أو زوجتك لمتابعة صحتهم.</p>
+        )}
+
+        {members.map(member => (
+          <div key={member.id} className="bg-white p-5 rounded-xl shadow border hover:border-purple-300 transition flex justify-between items-center">
+            <div className="flex gap-4 items-center">
+               <div className={`w-12 h-12 rounded-full flex items-center justify-center text-xl ${member.gender === 'male' ? 'bg-blue-100 text-blue-600' : 'bg-pink-100 text-pink-600'}`}>
+                 {member.gender === 'male' ? '👦' : '👧'}
+               </div>
+               <div>
+                 <h3 className="font-bold text-lg">{member.full_name}</h3>
+                 <p className="text-sm text-gray-500">
+                   {member.relation} | {new Date().getFullYear() - new Date(member.birth_date).getFullYear()} سنة
+                 </p>
+               </div>
+            </div>
+            <button 
+              onClick={() => handleDelete(member.id)}
+              className="text-red-500 hover:bg-red-50 p-2 rounded-full"
+              title="حذف الملف"
+            >
+              🗑️
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
