@@ -22,19 +22,21 @@ export default function ChildLog() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    // 1. جلب أفراد الأسرة (يفضل فلترة الأطفال بناءً على تاريخ الميلاد، لكن سنجلب الجميع للتبسيط)
+    // 1. جلب أفراد الأسرة
     const { data: members } = await supabase.from('medical_files').select('id, full_name').eq('user_id', user.id);
     if (members) {
         setFamilyMembers(members);
-        if(members.length > 0) setSelectedMember(members[0].id);
+        // الحل هنا: استخدام as any للوصول للخاصية id
+        if(members.length > 0) setSelectedMember((members[0] as any).id);
     }
 
-    // 2. جلب السجلات
-    const { data: logData } = await supabase
-      .from('health_log_child')
+    // 2. جلب السجلات (تحويل الجدول لـ any للأمان)
+    const { data: logData } = await (supabase
+      .from('health_log_child') as any)
       .select(`*, medical_files(full_name)`)
       .eq('user_id', user.id)
       .order('measured_at', { ascending: false });
+      
     if (logData) setLogs(logData);
   };
 
@@ -42,7 +44,8 @@ export default function ChildLog() {
     e.preventDefault();
     const { data: { user } } = await supabase.auth.getUser();
     
-    const { error } = await supabase.from('health_log_child').insert({
+    // الحل هنا: استخدام as any عند الإدخال
+    const { error } = await (supabase.from('health_log_child') as any).insert({
       user_id: user?.id,
       medical_file_id: selectedMember,
       height: formData.height ? parseFloat(formData.height) : null,
