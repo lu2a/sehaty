@@ -1,8 +1,8 @@
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import Sidebar from '@/components/layout/Sidebar'; //  تأكد من المسار
-import BottomNav from '@/components/layout/BottomNav'; // تأكد من المسار
+import Sidebar from '@/components/Sidebar';
+import BottomNav from '@/components/BottomNav';
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const cookieStore = cookies();
@@ -23,24 +23,27 @@ export default async function DashboardLayout({ children }: { children: React.Re
     redirect('/login');
   }
 
-  // --- ⬇️ هذا هو الجزء الذي كان ناقصاً ⬇️ ---
-  // جلب صلاحية المستخدم من جدول profiles
-  const { data: profile } = await supabase
+  // --- جلب الصلاحية ---
+  const { data: profile, error } = await supabase
     .from('profiles')
     .select('role')
     .eq('id', user.id)
     .single();
 
-  // تحديد الدور (الافتراضي هو client)
+  // 🕵️‍♂️ تشخيص المشكلة: انظر في الـ Terminal في VS Code
+  console.log('--- DEBUG START ---');
+  console.log('User ID:', user.id);
+  console.log('Profile Data:', profile);
+  console.log('Profile Error:', error);
+  console.log('--- DEBUG END ---');
+
   const userRole = profile?.role || 'client';
-  // ----------------------------------------
 
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-slate-50 dir-rtl font-cairo">
       
       {/* 1. القائمة الجانبية */}
       <div className="hidden md:block w-64 flex-shrink-0">
-        {/* مررنا الصلاحية هنا */}
         <Sidebar userRole={userRole} />
       </div>
 
@@ -53,7 +56,6 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
       {/* 3. الشريط السفلي */}
       <div className="md:hidden">
-        {/* يمكنك تمرير الدور هنا أيضاً إذا أردت إخفاء عناصر في الموبايل */}
         <BottomNav />
       </div>
 
