@@ -8,9 +8,11 @@ import { createClient } from '@/lib/supabase';
 import { 
   LayoutDashboard, FileText, Calculator, Users, Stethoscope, 
   Menu, X, LogOut, Settings, Database, ShieldCheck, 
-  BarChart3, Calendar, Building, MessageSquare, UserPlus
+  BarChart3, Calendar, Building, MessageSquare, UserPlus,
+  ClipboardList, History
 } from 'lucide-react';
 
+// قوائم المريض (Client)
 const MENU_ITEMS = [
   { name: 'الرئيسية', href: '/dashboard', icon: LayoutDashboard },
   { name: 'استشاراتي', href: '/consultations', icon: Stethoscope },
@@ -20,8 +22,22 @@ const MENU_ITEMS = [
   { name: 'الملف الطبي', href: '/medical-file', icon: Settings },
 ];
 
+// قوائم الطبيب (Doctor) - جديد ✅
+const DOCTOR_ITEMS = [
+  { name: 'عيادتي (لوحة التحكم)', href: '/doctor/dashboard', icon: Stethoscope },
+  { name: 'جميع الاستشارات', href: '/doctor/consultations', icon: ClipboardList }, // لاستعراض الكل
+];
+
+// قوائم المدير (Admin)
 const ADMIN_ITEMS = [
   { name: 'لوحة القيادة', href: '/admin', icon: BarChart3 },
+  { name: 'العيادات', href: '/admin/clinics', icon: Building },
+  { name: 'الأطباء والمستخدمين', href: '/admin/doctors', icon: UserPlus },
+  { name: 'الاستشارات', href: '/admin/consultations', icon: MessageSquare },
+  { name: 'الملفات الطبية', href: '/admin/medical-files', icon: FileText },
+  { name: 'المواعيد والحجوزات', href: '/admin/appointments', icon: Calendar },
+  { name: 'القوائم الطبية', href: '/admin/medical-lists', icon: Database },
+  { name: 'إعدادات المركز', href: '/admin/settings', icon: Settings },
 ];
 
 export default function Sidebar({ userRole = 'client' }: { userRole?: string }) {
@@ -38,6 +54,15 @@ export default function Sidebar({ userRole = 'client' }: { userRole?: string }) 
   const toggleMenu = () => setIsOpen(!isOpen);
   const closeMenu = () => setIsOpen(false);
 
+  // دالة مساعدة لتحديد القوائم بناءً على الدور
+  const getNavItems = () => {
+    if (userRole === 'admin') return ADMIN_ITEMS;
+    if (userRole === 'doctor') return DOCTOR_ITEMS;
+    return MENU_ITEMS; // الافتراضي للمريض
+  };
+
+  const currentItems = getNavItems();
+
   return (
     <>
       <div className="md:hidden bg-white border-b p-4 flex justify-between items-center sticky top-0 z-50">
@@ -50,10 +75,12 @@ export default function Sidebar({ userRole = 'client' }: { userRole?: string }) 
       <div className={`fixed inset-y-0 right-0 z-40 w-64 bg-white border-l shadow-lg transform transition-transform duration-300 ease-in-out md:translate-x-0 md:static md:h-screen md:shadow-none ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
         <div className="hidden md:flex items-center justify-center h-20 border-b">
           <h1 className="text-2xl font-bold text-blue-600">Sehaty AI</h1>
+          {userRole === 'doctor' && <span className="mr-2 text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">طبيب</span>}
+          {userRole === 'admin' && <span className="mr-2 text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full">مدير</span>}
         </div>
 
         <nav className="p-4 space-y-2 overflow-y-auto h-[calc(100vh-140px)]">
-          {MENU_ITEMS.map((item) => {
+          {currentItems.map((item) => {
             const Icon = item.icon;
             const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(`${item.href}/`));
             return (
@@ -63,22 +90,6 @@ export default function Sidebar({ userRole = 'client' }: { userRole?: string }) 
               </Link>
             );
           })}
-
-          {userRole === 'admin' && (
-            <div className="mt-6 pt-6 border-t border-gray-100 animate-in fade-in slide-in-from-right-4">
-              <p className="px-4 text-xs font-bold text-gray-400 mb-3">إدارة النظام</p>
-              {ADMIN_ITEMS.map((item) => {
-                const Icon = item.icon;
-                const isActive = pathname === item.href;
-                return (
-                  <Link key={item.href} href={item.href} onClick={closeMenu} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-medium mb-1 ${isActive ? 'bg-indigo-50 text-indigo-700 shadow-sm' : 'text-gray-600 hover:bg-indigo-50 hover:text-indigo-600'}`}>
-                    <Icon size={20} />
-                    <span>{item.name}</span>
-                  </Link>
-                );
-              })}
-            </div>
-          )}
         </nav>
 
         <div className="absolute bottom-0 w-full p-4 border-t bg-gray-50">
