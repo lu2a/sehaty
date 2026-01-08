@@ -9,7 +9,6 @@ import {
   Pill, Activity
 } from 'lucide-react';
 
-// --- واجهات البيانات ---
 interface Medication {
   name: string;
   concentration: string;
@@ -32,7 +31,6 @@ interface ReplyData {
 export default function ConsultationDetail() {
   const supabase = createClient();
   const params = useParams();
-  // 🔴 التصحيح هنا: إجبار id ليكون string
   const id = params?.id as string;
   
   const [data, setData] = useState<any>(null);
@@ -46,11 +44,9 @@ export default function ConsultationDetail() {
       const { data: { user } } = await supabase.auth.getUser();
       setCurrentUser(user);
 
-      // 1. جلب بيانات المركز
       const { data: settings } = await (supabase.from('center_settings') as any).select('*').single();
       setCenterSettings(settings);
 
-      // 2. جلب الاستشارة
       const { data: consultation } = await (supabase
         .from('consultations') as any)
         .select('*, medical_files(*), doctors(*, profiles(full_name))')
@@ -59,7 +55,6 @@ export default function ConsultationDetail() {
         
       setData(consultation);
 
-      // 3. تحليل الرد
       if (consultation?.doctor_reply && consultation.status === 'closed') {
         try {
           const parsed = typeof consultation.doctor_reply === 'string' 
@@ -104,7 +99,6 @@ export default function ConsultationDetail() {
   return (
     <div className="p-4 max-w-4xl mx-auto dir-rtl pb-20 font-cairo">
       
-      {/* Header */}
       <div className="flex justify-between items-center mb-6 print:hidden">
         <h1 className="text-2xl font-bold text-slate-800">تفاصيل الاستشارة</h1>
         <span className={`px-4 py-1.5 rounded-full text-sm font-bold flex items-center gap-2 ${
@@ -116,7 +110,6 @@ export default function ConsultationDetail() {
         </span>
       </div>
 
-      {/* Report Card */}
       {data.status === 'closed' && report && (
         <div className="bg-white rounded-2xl shadow-lg border border-green-100 overflow-hidden mb-8 print:hidden animate-in slide-in-from-top-4">
           <div className="bg-green-50 p-4 border-b border-green-100 flex justify-between items-center">
@@ -173,10 +166,9 @@ export default function ConsultationDetail() {
         </div>
       )}
 
-      {/* A4 Prescription View */}
+      {/* A4 Hidden View */}
       {(showPrescription || (typeof window !== 'undefined' && window.matchMedia('print').matches)) && report && (
         <div className={`bg-white p-8 mb-8 border shadow-2xl mx-auto print:shadow-none print:border-none print:w-full print:absolute print:top-0 print:left-0 print:z-50 ${showPrescription ? 'block' : 'hidden print:block'}`} style={{ maxWidth: '210mm', minHeight: '297mm' }}>
-          
           <div className="flex justify-between items-start border-b-4 border-blue-600 pb-6 mb-8">
             <div>
               <h1 className="text-3xl font-bold text-blue-800 mb-2">{centerSettings?.center_name || 'مركز صحتي الطبي'}</h1>
@@ -235,22 +227,22 @@ export default function ConsultationDetail() {
         </div>
       )}
 
-      {/* Complaint Details */}
       <div className="bg-white p-6 rounded-2xl shadow-sm mb-6 border border-slate-100 print:hidden">
         <p className="text-gray-500 text-xs font-bold mb-2 uppercase tracking-wide">الشكوى الأصلية</p>
         <p className="text-gray-800 leading-relaxed">{data.content}</p>
       </div>
 
-      {/* Chat Area */}
       <div className="print:hidden">
         <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-slate-800">
           <Activity className="text-blue-600"/> سجل المحادثة
         </h2>
         
-        {/* ✅ تم تمرير id بعد تحويله إلى string بشكل صريح */}
+        {/* ✅ تمرير البيانات المطلوبة فقط بدون onEndChat */}
         <ChatArea 
           consultationId={id} 
-          currentUserId={currentUser.id} 
+          currentUserId={currentUser.id}
+          isClosed={data.status === 'closed'}
+          createdAt={data.created_at}
         />
       </div>
 
