@@ -591,7 +591,7 @@ export default function DoctorConsultationPage() {
           
           {/* FIXED LINK */}
           <Link 
-            href={`/medical-file/${consultation.medical_files?.id}`} 
+href={`/doctor/file/${consultation.medical_files?.id}`}  // ✅ الرابط الجديد الصحيح
             className="block w-full text-center bg-gray-100 text-gray-700 font-bold py-3 rounded-xl mt-6 hover:bg-gray-200 transition"
           >
             عرض الملف الطبي الكامل ↗
