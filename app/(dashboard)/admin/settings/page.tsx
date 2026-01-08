@@ -27,7 +27,7 @@ export default function AdminSettings() {
   // جلب البيانات عند التحميل
   useEffect(() => {
     const fetchSettings = async () => {
-      // 🔴 إضافة (as any) هنا لتجاوز فحص TypeScript للجدول الجديد
+      // استخدمنا (as any) لتجاوز تدقيق الأنواع للجدول الجديد
       const { data, error } = await (supabase
         .from('center_settings') as any)
         .select('*')
@@ -59,12 +59,14 @@ export default function AdminSettings() {
     e.preventDefault();
     setLoading(true);
 
-    // 🔴 إضافة (as any) هنا أيضاً عند الحفظ
+    // ✅ الحل هنا: نفصل id عن باقي البيانات لمنع التكرار
+    const { id, ...restData } = formData;
+
     const { error } = await (supabase
       .from('center_settings') as any)
       .upsert({
-        id: formData.id || undefined, 
-        ...formData,
+        id: id || undefined, // نرسل undefined إذا كان فارغاً لإنشاء سجل جديد
+        ...restData,         // نرسل باقي البيانات بدون تكرار الـ id
         updated_at: new Date()
       });
 
