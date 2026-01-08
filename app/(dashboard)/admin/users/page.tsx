@@ -8,8 +8,6 @@ import {
   Shield, 
   Stethoscope, 
   User, 
-  CheckCircle,
-  XCircle,
   Loader2 
 } from 'lucide-react';
 
@@ -25,9 +23,8 @@ export default function AdminUsers() {
 
   const fetchUsers = async () => {
     setLoading(true);
-    // جلب البيانات من جدول profiles
-    const { data, error } = await supabase
-      .from('profiles')
+    // استخدام as any لتجنب مشاكل الأنواع عند الجلب
+    const { data, error } = await (supabase.from('profiles') as any)
       .select('*')
       .order('created_at', { ascending: false });
     
@@ -41,8 +38,8 @@ export default function AdminUsers() {
     const confirmMsg = `هل أنت متأكد من تغيير صلاحية هذا المستخدم إلى ${newRole}؟`;
     if (!confirm(confirmMsg)) return;
 
-    const { error } = await supabase
-      .from('profiles')
+    // --- التعديل هنا: إضافة (as any) لتجاوز خطأ الـ Build ---
+    const { error } = await (supabase.from('profiles') as any)
       .update({ role: newRole })
       .eq('id', userId);
 
