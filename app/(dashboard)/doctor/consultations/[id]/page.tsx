@@ -362,7 +362,8 @@ export default function DoctorConsultationPage() {
           ...replyData,
           patientName: consultation.medical_files?.full_name,
           patientId: consultation.medical_files?.id,
-          patientAge: new Date().getFullYear() - new Date(consultation.medical_files?.birth_date || '').getFullYear(),
+          // ✅ تصحيح: إضافة التحقق من وجود birth_date لتجنب الخطأ
+          patientAge: consultation.medical_files?.birth_date ? new Date().getFullYear() - new Date(consultation.medical_files.birth_date).getFullYear() : '--',
           doctorName: doctorProfile?.full_name || 'طبيب',
           specialty: 'باطنة عامة'
         }}
@@ -580,7 +581,6 @@ export default function DoctorConsultationPage() {
           <div className="bg-gray-50 p-4 border-b font-bold flex items-center gap-2 text-slate-800">
             <User size={20} className="text-blue-600" /> غرفة المحادثة
           </div>
-          {/* ✅ تم تصحيح تمرير الخصائص هنا */}
           <ChatArea 
             consultationId={id} 
             currentUserId={currentUser?.id}
@@ -623,7 +623,8 @@ export default function DoctorConsultationPage() {
           </div>
           <div className="space-y-3 text-sm mb-6">
             <div className="flex justify-between border-b pb-2"><span className="text-gray-500">الجنس</span> <b>{consultation.medical_files?.gender === 'male' ? 'ذكر' : 'أنثى'}</b></div>
-            <div className="flex justify-between border-b pb-2"><span className="text-gray-500">العمر</span> <b>{new Date().getFullYear() - new Date(consultation.medical_files?.birth_date).getFullYear()} سنة</b></div>
+            {/* ✅ تصحيح: إضافة التحقق هنا أيضاً */}
+            <div className="flex justify-between border-b pb-2"><span className="text-gray-500">العمر</span> <b>{consultation.medical_files?.birth_date ? new Date().getFullYear() - new Date(consultation.medical_files.birth_date).getFullYear() : '--'} سنة</b></div>
           </div>
           <button onClick={() => setShowFileModal(true)} className="w-full bg-blue-50 text-blue-700 font-bold py-3 rounded-xl hover:bg-blue-100 transition flex items-center justify-center gap-2 border border-blue-200">
             <FileText size={18} /> عرض الملف الطبي
