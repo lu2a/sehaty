@@ -47,7 +47,7 @@ interface Consultation {
   created_at: string;
   content: string;
   status: 'pending' | 'active' | 'referred' | 'passed' | 'closed' | 'reported';
-  is_emergency: boolean; // لاحظ: قد تحتاج للتأكد من وجود هذا العمود في قاعدتك أو جلبه كـ urgency
+  is_emergency: boolean;
   urgency?: 'low' | 'medium' | 'high' | 'critical';
   medical_files?: MedicalFile;
   doctor_reply?: string;
@@ -239,7 +239,7 @@ export default function DoctorConsultationPage() {
       setCurrentUser(user);
 
       // 1. Consultation & File
-      // نستخدم as any هنا فقط في الاستعلام المعقد (Select) لتجاوز مشكلة العلاقات
+      // استخدمنا (as any) هنا لتجنب مشاكل TypeScript مع العلاقات
       const { data: consult } = await (supabase.from('consultations') as any)
         .select('*, medical_files(*)')
         .eq('id', id).single();
@@ -269,18 +269,23 @@ export default function DoctorConsultationPage() {
   // Actions
   const handleStart = async () => {
     if (!currentUser) return;
-    // ✅ تصحيح: استخدام 'active' بدلاً من 'in_progress' ليتوافق مع أنواع قاعدة البيانات
-    await supabase.from('consultations')
+    
+    // 🔴 التصحيح هنا: استخدام (as any) لتجاوز خطأ Type error ومنع التوقف عند never
+    await (supabase.from('consultations') as any)
       .update({ status: 'active', doctor_id: currentUser.id })
       .eq('id', id);
+
     setView('wizard');
   };
 
   const handleSkip = async () => {
     if (!confirm('هل أنت متأكد من تخطي هذه الحالة؟ ستعود لقائمة الانتظار.')) return;
-    await supabase.from('consultations')
+    
+    // 🔴 تصحيح هنا أيضاً
+    await (supabase.from('consultations') as any)
       .update({ status: 'pending', doctor_id: null })
       .eq('id', id);
+
     router.push('/doctor/dashboard');
   };
 
@@ -291,8 +296,8 @@ export default function DoctorConsultationPage() {
 
     const newStatus = actionType === 'refer' ? 'referred' : 'reported';
 
-    // نحفظ الملاحظات في doctor_reply لأن الجدول لا يحتوي على notes
-    await supabase.from('consultations')
+    // 🔴 تصحيح هنا أيضاً
+    await (supabase.from('consultations') as any)
       .update({ status: newStatus, doctor_reply: note })
       .eq('id', id);
       
@@ -301,13 +306,14 @@ export default function DoctorConsultationPage() {
   };
 
   const handleFinish = async () => {
-    // نحفظ بيانات الرد (الروشتة) كاملة كـ JSON string داخل doctor_reply
-    await supabase.from('consultations').update({
+    // 🔴 تصحيح هنا أيضاً
+    await (supabase.from('consultations') as any).update({
       status: 'closed',
       doctor_reply: JSON.stringify(replyData), 
       diagnosis: replyData.diagnosis,
       updated_at: new Date().toISOString()
     }).eq('id', id);
+    
     setView('prescription');
   };
 
@@ -385,8 +391,6 @@ export default function DoctorConsultationPage() {
                     onChange={(val) => {
                       const input = document.getElementById('med-name-input') as HTMLInputElement;
                       if(input) input.value = val;
-                      // نقوم بتحديث حالة مؤقتة هنا في التطبيق الحقيقي
-                      // للتبسيط سنعتمد على أن الطبيب سيضغط "إضافة" بعد الاختيار
                       (document.getElementById('med-name-hidden') as HTMLInputElement).value = val;
                     }}
                     placeholder="بحث..."
