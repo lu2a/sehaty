@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase';
 import { useParams, useRouter } from 'next/navigation';
 import { 
@@ -13,6 +13,7 @@ import ChatArea from '@/components/consultation/ChatArea';
 import MedicalFileModal from '@/components/consultation/MedicalFileModal';
 
 // --- Interfaces ---
+
 interface Medication {
   name: string;
   concentration: string;
@@ -49,7 +50,8 @@ interface Consultation {
   id: string;
   created_at: string;
   content: string;
-  status: 'pending' | 'active' | 'referred' | 'passed' | 'closed' | 'reported';
+  // ✅ تمت إضافة resolved لتجنب خطأ TypeScript
+  status: 'pending' | 'active' | 'referred' | 'passed' | 'closed' | 'reported' | 'resolved';
   is_emergency: boolean;
   medical_files?: MedicalFile;
   doctor_reply?: string;
@@ -200,7 +202,7 @@ const PrescriptionView = ({ data, centerSettings, onBack, onExit }: any) => {
 // --- Main Page Component ---
 export default function DoctorConsultationPage() {
   const params = useParams();
-  // تأكد من أن ID هو نص
+  // التأكد من أن ID هو نص
   const id = params?.id as string;
   
   const supabase = createClient();
@@ -296,56 +298,48 @@ export default function DoctorConsultationPage() {
     router.push('/doctor/dashboard');
   };
 
-  // ✅ إنهاء المحادثة (الدردشة فقط)
-// ✅ دالة إنهاء المحادثة (إغلاق فوري ونهائي بطلب الطبيب)
+  // ✅ إنهاء المحادثة (الدردشة فقط) - إغلاق نهائي
   const handleEndChatWithAutoMessage = async () => {
     if (!confirm('هل أنت متأكد من إنهاء المحادثة وإغلاقها نهائياً؟')) return;
 
     const doctorName = doctorProfile?.full_name || 'الطبيب';
     const now = new Date();
     
-    // 1. رسالة الوداع
     const autoMessage = `أنا د. ${doctorName}، سعدت جداً بالتحدث معك. أنا في انتظارك دائماً. نتمنى لك دوام الصحة والسعادة.`;
-    // 2. رسالة النظام
     const systemMessage = `SYSTEM_MSG: تم إنهاء المحادثة وإغلاق التذكرة في ${now.toLocaleTimeString('ar-EG')}`;
 
     try {
-      // إرسال الرسائل (لاحظ النوع system)
       await (supabase.from('messages') as any).insert([
         { consultation_id: id, sender_id: currentUser.id, content: autoMessage, type: 'text' },
         { consultation_id: id, sender_id: currentUser.id, content: systemMessage, type: 'system' }
       ]);
 
-      // تحديث الحالة إلى مغلقة نهائياً
       await (supabase.from('consultations') as any)
         .update({ status: 'closed', updated_at: now.toISOString() })
         .eq('id', id);
 
       setConsultation((prev: any) => ({ ...prev, status: 'closed' }));
+      alert('تم إنهاء المحادثة بنجاح.');
       
     } catch (error: any) {
       alert('حدث خطأ: ' + error.message);
     }
   };
 
-  // ✅ تحديث handleFinish (عند إصدار الروشتة - تفعيل فترة السماح)
+  // ✅ إنهاء مع روشتة - تفعيل فترة السماح (Resolved)
   const handleFinish = async () => {
     const now = new Date();
     
-    // هنا نجعل الحالة resolved بدلاً من closed لإعطاء فترة سماح
-    // سنستخدم closed في الكود الحالي للتبسيط حسب طلبك الأخير بالإغلاق، 
-    // ولكن لتوفر خيار الرد، يمكنك تغيير status: 'resolved'
-    
+    // تحويل الحالة إلى resolved للسماح بفترة استفسار
     const { error } = await (supabase.from('consultations') as any).update({
-      status: 'resolved', // تغيير الحالة إلى "تم الحل" (فترة سماح)
+      status: 'resolved', 
       doctor_reply: JSON.stringify(replyData),
       diagnosis: replyData.diagnosis,
       updated_at: now.toISOString()
     }).eq('id', id);
 
-    if (error) { alert('خطأ: ' + error.message); return; }
+    if (error) { alert('خطأ في الحفظ: ' + error.message); return; }
     
-    // إرسال تنبيه بالشات
     const systemMessage = `SYSTEM_MSG: تم إصدار الروشتة الطبية. يمكنك الاستفسار لمدة ساعة قبل إغلاق الملف نهائياً.`;
     await (supabase.from('messages') as any).insert({ 
        consultation_id: id, sender_id: currentUser.id, content: systemMessage, type: 'system' 
@@ -362,7 +356,6 @@ export default function DoctorConsultationPage() {
     alert('تم تنفيذ الإجراء بنجاح');
     router.push('/doctor/dashboard');
   };
-
 
   const handleExit = () => {
     alert('تم الرد وحفظ الروشتة ✅');
@@ -381,7 +374,7 @@ export default function DoctorConsultationPage() {
           ...replyData,
           patientName: consultation.medical_files?.full_name,
           patientId: consultation.medical_files?.id,
-          // ✅ تصحيح: إضافة التحقق من وجود birth_date لتجنب الخطأ
+          // ✅ تم إصلاح خطأ التاريخ هنا بإضافة الشرط
           patientAge: consultation.medical_files?.birth_date ? new Date().getFullYear() - new Date(consultation.medical_files.birth_date).getFullYear() : '--',
           doctorName: doctorProfile?.full_name || 'طبيب',
           specialty: 'باطنة عامة'
@@ -496,7 +489,7 @@ export default function DoctorConsultationPage() {
             </div>
           )}
 
-          {/* Steps 3,4,5,6 (Simplified for brevity, same logic as before) */}
+          {/* Steps 3-6 */}
           {step === 3 && (
             <div className="space-y-4">
               <h2 className="text-xl font-bold flex items-center gap-2"><FlaskConical className="text-purple-600"/> التحاليل</h2>
@@ -604,8 +597,7 @@ export default function DoctorConsultationPage() {
             consultationId={id} 
             currentUserId={currentUser?.id}
             doctorName={doctorProfile?.full_name}
-            // نعتبره مغلقاً فقط إذا كانت الحالة closed، أما resolved فهي مفتوحة
-            isClosed={consultation.status === 'closed'} 
+            isClosed={consultation.status === 'closed'}
             isResolved={consultation.status === 'resolved'}
             createdAt={consultation.created_at}
             onEndChat={handleEndChatWithAutoMessage}
@@ -616,7 +608,7 @@ export default function DoctorConsultationPage() {
       {/* Left Column */}
       <div className="space-y-6">
         {/* Actions */}
-        {consultation.status !== 'closed' && (
+        {consultation.status !== 'closed' && consultation.status !== 'resolved' && (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 space-y-3">
             <button onClick={handleStart} className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 flex items-center justify-center gap-2 shadow-lg shadow-blue-200">
               <Play size={20} fill="currentColor" /> استلام والرد (روشتة)
@@ -644,8 +636,11 @@ export default function DoctorConsultationPage() {
           </div>
           <div className="space-y-3 text-sm mb-6">
             <div className="flex justify-between border-b pb-2"><span className="text-gray-500">الجنس</span> <b>{consultation.medical_files?.gender === 'male' ? 'ذكر' : 'أنثى'}</b></div>
-            {/* ✅ تصحيح: إضافة التحقق هنا أيضاً */}
-            <div className="flex justify-between border-b pb-2"><span className="text-gray-500">العمر</span> <b>{consultation.medical_files?.birth_date ? new Date().getFullYear() - new Date(consultation.medical_files.birth_date).getFullYear() : '--'} سنة</b></div>
+            <div className="flex justify-between border-b pb-2">
+              <span className="text-gray-500">العمر</span> 
+              {/* ✅ تم إصلاح خطأ Date */}
+              <b>{consultation.medical_files?.birth_date ? new Date().getFullYear() - new Date(consultation.medical_files.birth_date).getFullYear() : '--'} سنة</b>
+            </div>
           </div>
           <button onClick={() => setShowFileModal(true)} className="w-full bg-blue-50 text-blue-700 font-bold py-3 rounded-xl hover:bg-blue-100 transition flex items-center justify-center gap-2 border border-blue-200">
             <FileText size={18} /> عرض الملف الطبي
