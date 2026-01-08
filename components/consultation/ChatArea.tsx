@@ -2,35 +2,40 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { createClient } from '@/lib/supabase';
-import { Send, Smile, Clock, Power, Lock } from 'lucide-react';
+import { Send, Clock, Power, Lock } from 'lucide-react';
 
 interface Message {
   id: string;
   sender_id: string;
   content: string;
   created_at: string;
-  is_system_message?: boolean; // لتمييز رسائل النظام
+  is_system_message?: boolean;
 }
 
 interface ChatProps {
   consultationId: string;
   currentUserId: string;
-  doctorName: string; // اسم الطبيب للرسالة الأوتوماتيكية
-  isClosed: boolean;
-  createdAt: string; // تاريخ بدء الاستشارة للتايمر
-  onEndChat: () => void; // دالة الإنهاء من الصفحة الرئيسية
+  isClosed: boolean;      // مطلوب
+  createdAt: string;      // مطلوب (للتايمر)
+  doctorName?: string;    // اختياري (للطبيب فقط)
+  onEndChat?: () => void; // اختياري (إذا لم يمرر، لن يظهر زر الإنهاء)
 }
 
-export default function ChatArea({ consultationId, currentUserId, doctorName, isClosed, createdAt, onEndChat }: ChatProps) {
+export default function ChatArea({ 
+  consultationId, 
+  currentUserId, 
+  isClosed, 
+  createdAt, 
+  onEndChat 
+}: ChatProps) {
   const supabase = createClient();
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
-  // التايمر
   const [timer, setTimer] = useState('00:00:00');
 
-  // حساب الوقت المنقضي
+  // حساب الوقت
   useEffect(() => {
     const interval = setInterval(() => {
       const start = new Date(createdAt).getTime();
@@ -46,7 +51,6 @@ export default function ChatArea({ consultationId, currentUserId, doctorName, is
     return () => clearInterval(interval);
   }, [createdAt]);
 
-  // جلب الرسائل
   useEffect(() => {
     const fetchMessages = async () => {
       const { data } = await (supabase.from('messages') as any)
@@ -84,14 +88,14 @@ export default function ChatArea({ consultationId, currentUserId, doctorName, is
   return (
     <div className="flex flex-col h-[500px] bg-white rounded-2xl border shadow-sm overflow-hidden">
       
-      {/* 1. شريط أدوات الشات */}
       <div className="bg-slate-50 p-3 border-b flex justify-between items-center">
         <div className="flex items-center gap-2 text-slate-600 text-sm font-bold">
           <Clock size={16} className="text-blue-600"/>
           <span>مدة الجلسة: <span className="font-mono text-blue-700">{timer}</span></span>
         </div>
         
-        {!isClosed && (
+        {/* إظهار زر الإنهاء فقط إذا تم تمرير الدالة (للطبيب) وكانت المحادثة مفتوحة */}
+        {!isClosed && onEndChat && (
           <button 
             onClick={onEndChat}
             className="bg-red-50 text-red-600 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-red-100 flex items-center gap-1 transition"
@@ -106,11 +110,9 @@ export default function ChatArea({ consultationId, currentUserId, doctorName, is
         )}
       </div>
 
-      {/* 2. منطقة الرسائل */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/50">
         {messages.map((msg) => {
           const isMe = msg.sender_id === currentUserId;
-          // تمييز رسائل النظام
           if (msg.content.includes('SYSTEM_MSG:')) {
              return (
                <div key={msg.id} className="flex justify-center my-4">
@@ -135,22 +137,21 @@ export default function ChatArea({ consultationId, currentUserId, doctorName, is
         <div ref={messagesEndRef} />
       </div>
 
-      {/* 3. حقل الإدخال */}
       <form onSubmit={handleSendMessage} className="p-3 bg-white border-t flex gap-2 items-center">
         <input
           type="text"
           disabled={isClosed}
           value={newMessage}
           onChange={(e) => setNewMessage(e.target.value)}
-          placeholder={isClosed ? "تم إنهاء المحادثة، لا يمكن الإرسال." : "اكتب رسالتك هنا..."}
+          placeholder={isClosed ? "تم إنهاء المحادثة" : "اكتب رسالتك هنا..."}
           className="flex-1 p-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-100 bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400"
         />
         <button 
           type="submit" 
           disabled={!newMessage.trim() || isClosed}
-          className="bg-blue-600 text-white w-12 h-12 rounded-xl flex items-center justify-center hover:bg-blue-700 disabled:opacity-50 disabled:hover:bg-blue-600 transition"
+          className="bg-blue-600 text-white w-12 h-12 rounded-xl flex items-center justify-center hover:bg-blue-700 disabled:opacity-50 transition"
         >
-          <Send size={20} className={isClosed ? "" : "ml-1"} />
+          <Send size={20} />
         </button>
       </form>
     </div>
