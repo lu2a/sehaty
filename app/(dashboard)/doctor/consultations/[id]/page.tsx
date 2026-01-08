@@ -10,7 +10,6 @@ import {
   Share2, ChevronLeft, ChevronRight, Play, AlertOctagon, CornerUpLeft, XCircle, Ban
 } from 'lucide-react';
 import SearchableSelect from '@/components/ui/SearchableSelect';
-// ✅ استيراد مكون المحادثة
 import ChatArea from '@/components/consultation/ChatArea';
 
 // --- Types ---
@@ -201,7 +200,10 @@ const PrescriptionView = ({ data, centerSettings, onBack, onExit }: any) => {
 
 // 2. الصفحة الرئيسية
 export default function DoctorConsultationPage() {
-  const { id } = useParams();
+  // 🔴 التصحيح: استخراج id كنص صريح
+  const params = useParams();
+  const id = params?.id as string;
+  
   const supabase = createClient();
   const router = useRouter();
 
@@ -625,7 +627,7 @@ export default function DoctorConsultationPage() {
             المحادثة المباشرة
           </div>
           <div className="h-[400px]">
-            {/* نمرر isReadOnly إذا كانت الاستشارة مغلقة لمنع الكتابة */}
+            {/* ✅ تم تمرير id بعد تحويله إلى string */}
             <ChatArea 
               consultationId={id} 
               currentUserId={currentUser?.id} 
