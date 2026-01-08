@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { 
   User, Clock, AlertTriangle, FileText, CheckCircle, 
   Printer, ArrowRight, Stethoscope, Pill, FlaskConical, MessageCircle,
-  Share2, ChevronLeft, ChevronRight, Play, AlertOctagon, CornerUpLeft, XCircle
+  Share2, ChevronLeft, ChevronRight, Play, AlertOctagon, CornerUpLeft, XCircle, Home
 } from 'lucide-react';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 
@@ -57,22 +57,29 @@ interface Consultation {
 // --- Components ---
 
 // 1. مكون الروشتة (Prescription A4)
-const PrescriptionView = ({ data, centerSettings, onBack }: any) => {
+// تم إضافة onExit للخصائص
+const PrescriptionView = ({ data, centerSettings, onBack, onExit }: any) => {
   const handlePrint = () => window.print();
 
   return (
     <div className="max-w-4xl mx-auto p-4 animate-in fade-in">
       {/* Toolbar */}
-      <div className="flex justify-between items-center mb-6 print:hidden">
-        <button onClick={onBack} className="flex items-center gap-2 text-gray-600 hover:text-gray-900 bg-white px-4 py-2 rounded-lg border">
+      <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4 print:hidden">
+        <button onClick={onBack} className="flex items-center gap-2 text-gray-600 hover:text-gray-900 bg-white px-4 py-2 rounded-lg border w-full md:w-auto justify-center">
           <ArrowRight size={18} /> عودة للتعديل
         </button>
-        <div className="flex gap-2">
-          <button onClick={handlePrint} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 shadow-sm">
-            <Printer size={18} /> طباعة / PDF
+        
+        <div className="flex gap-2 w-full md:w-auto flex-wrap justify-center">
+          {/* زر الإنهاء والعودة الجديد */}
+          <button 
+            onClick={onExit} 
+            className="bg-slate-800 text-white px-6 py-2 rounded-lg flex items-center gap-2 hover:bg-slate-900 shadow-md font-bold transition-all"
+          >
+            <CheckCircle size={18} /> إنهاء والعودة للاستشارات
           </button>
-          <button className="bg-green-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-green-700 shadow-sm">
-            <Share2 size={18} /> مشاركة واتساب
+
+          <button onClick={handlePrint} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 shadow-sm">
+            <Printer size={18} /> طباعة
           </button>
         </div>
       </div>
@@ -239,7 +246,6 @@ export default function DoctorConsultationPage() {
       setCurrentUser(user);
 
       // 1. Consultation & File
-      // استخدمنا (as any) هنا لتجنب مشاكل TypeScript مع العلاقات
       const { data: consult } = await (supabase.from('consultations') as any)
         .select('*, medical_files(*)')
         .eq('id', id).single();
@@ -269,8 +275,6 @@ export default function DoctorConsultationPage() {
   // Actions
   const handleStart = async () => {
     if (!currentUser) return;
-    
-    // 🔴 التصحيح هنا: استخدام (as any) لتجاوز خطأ Type error ومنع التوقف عند never
     await (supabase.from('consultations') as any)
       .update({ status: 'active', doctor_id: currentUser.id })
       .eq('id', id);
@@ -280,8 +284,6 @@ export default function DoctorConsultationPage() {
 
   const handleSkip = async () => {
     if (!confirm('هل أنت متأكد من تخطي هذه الحالة؟ ستعود لقائمة الانتظار.')) return;
-    
-    // 🔴 تصحيح هنا أيضاً
     await (supabase.from('consultations') as any)
       .update({ status: 'pending', doctor_id: null })
       .eq('id', id);
@@ -296,7 +298,6 @@ export default function DoctorConsultationPage() {
 
     const newStatus = actionType === 'refer' ? 'referred' : 'reported';
 
-    // 🔴 تصحيح هنا أيضاً
     await (supabase.from('consultations') as any)
       .update({ status: newStatus, doctor_reply: note })
       .eq('id', id);
@@ -306,7 +307,6 @@ export default function DoctorConsultationPage() {
   };
 
   const handleFinish = async () => {
-    // 🔴 تصحيح هنا أيضاً
     await (supabase.from('consultations') as any).update({
       status: 'closed',
       doctor_reply: JSON.stringify(replyData), 
@@ -315,6 +315,12 @@ export default function DoctorConsultationPage() {
     }).eq('id', id);
     
     setView('prescription');
+  };
+
+  // ✅ دالة الخروج الجديدة
+  const handleExit = () => {
+    alert('تم الرد على الاستشارة بنجاح وحفظ الروشتة ✅\nجاري العودة للوحة التحكم...');
+    router.push('/doctor/dashboard');
   };
 
   if (loading) return <div className="p-20 text-center"><span className="animate-spin text-2xl">⏳</span></div>;
@@ -335,6 +341,7 @@ export default function DoctorConsultationPage() {
         }}
         centerSettings={centerSettings}
         onBack={() => setView('wizard')}
+        onExit={handleExit} // تمرير دالة الخروج
       />
     );
   }
@@ -638,7 +645,6 @@ export default function DoctorConsultationPage() {
             </div>
           </div>
           
-          {/* ✅ هذا الرابط الآن يعمل ويفتح الملف في تبويب جديد */}
           <Link 
             href={`/doctor/file/${consultation.medical_files?.id}`} 
             target="_blank"
