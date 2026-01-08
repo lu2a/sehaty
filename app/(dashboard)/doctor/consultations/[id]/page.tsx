@@ -297,31 +297,61 @@ export default function DoctorConsultationPage() {
   };
 
   // ✅ إنهاء المحادثة (الدردشة فقط)
+// ✅ دالة إنهاء المحادثة (إغلاق فوري ونهائي بطلب الطبيب)
   const handleEndChatWithAutoMessage = async () => {
-    if (!confirm('هل أنت متأكد من إنهاء المحادثة؟ سيتم إرسال رسالة وداع وإغلاق التذكرة.')) return;
+    if (!confirm('هل أنت متأكد من إنهاء المحادثة وإغلاقها نهائياً؟')) return;
 
     const doctorName = doctorProfile?.full_name || 'الطبيب';
     const now = new Date();
     
-    const autoMessage = `أنا د. ${doctorName}، سعدت جداً بالتحدث معك. أنا في انتظارك دائماً للاستفسار. نتمنى لك دوام الصحة والسعادة.`;
-    const systemMessage = `SYSTEM_MSG: تم إنهاء المحادثة من قبل د. ${doctorName} في ${now.toLocaleTimeString('ar-EG')}`;
+    // 1. رسالة الوداع
+    const autoMessage = `أنا د. ${doctorName}، سعدت جداً بالتحدث معك. أنا في انتظارك دائماً. نتمنى لك دوام الصحة والسعادة.`;
+    // 2. رسالة النظام
+    const systemMessage = `SYSTEM_MSG: تم إنهاء المحادثة وإغلاق التذكرة في ${now.toLocaleTimeString('ar-EG')}`;
 
     try {
+      // إرسال الرسائل (لاحظ النوع system)
       await (supabase.from('messages') as any).insert([
-        { consultation_id: id, sender_id: currentUser.id, content: autoMessage },
-        { consultation_id: id, sender_id: currentUser.id, content: systemMessage }
+        { consultation_id: id, sender_id: currentUser.id, content: autoMessage, type: 'text' },
+        { consultation_id: id, sender_id: currentUser.id, content: systemMessage, type: 'system' }
       ]);
 
+      // تحديث الحالة إلى مغلقة نهائياً
       await (supabase.from('consultations') as any)
         .update({ status: 'closed', updated_at: now.toISOString() })
         .eq('id', id);
 
       setConsultation((prev: any) => ({ ...prev, status: 'closed' }));
-      alert('تم إنهاء المحادثة بنجاح.');
       
     } catch (error: any) {
       alert('حدث خطأ: ' + error.message);
     }
+  };
+
+  // ✅ تحديث handleFinish (عند إصدار الروشتة - تفعيل فترة السماح)
+  const handleFinish = async () => {
+    const now = new Date();
+    
+    // هنا نجعل الحالة resolved بدلاً من closed لإعطاء فترة سماح
+    // سنستخدم closed في الكود الحالي للتبسيط حسب طلبك الأخير بالإغلاق، 
+    // ولكن لتوفر خيار الرد، يمكنك تغيير status: 'resolved'
+    
+    const { error } = await (supabase.from('consultations') as any).update({
+      status: 'resolved', // تغيير الحالة إلى "تم الحل" (فترة سماح)
+      doctor_reply: JSON.stringify(replyData),
+      diagnosis: replyData.diagnosis,
+      updated_at: now.toISOString()
+    }).eq('id', id);
+
+    if (error) { alert('خطأ: ' + error.message); return; }
+    
+    // إرسال تنبيه بالشات
+    const systemMessage = `SYSTEM_MSG: تم إصدار الروشتة الطبية. يمكنك الاستفسار لمدة ساعة قبل إغلاق الملف نهائياً.`;
+    await (supabase.from('messages') as any).insert({ 
+       consultation_id: id, sender_id: currentUser.id, content: systemMessage, type: 'system' 
+    });
+
+    setView('prescription');
   };
 
   const handleSubmitAction = async () => {
