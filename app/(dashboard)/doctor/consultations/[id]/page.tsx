@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { 
-  User, AlertTriangle, CheckCircle, 
+  User, Clock, AlertTriangle, FileText, CheckCircle, 
   Printer, ArrowRight, Stethoscope, Pill, FlaskConical, MessageCircle,
   Share2, ChevronLeft, ChevronRight, Play, AlertOctagon, CornerUpLeft, XCircle
 } from 'lucide-react';
@@ -248,14 +248,14 @@ export default function DoctorConsultationPage() {
     init();
   }, [id]);
 
-  // --- Actions with Error Handling ---
+  // --- Actions with Error Handling and Type Fixes ---
 
   const handleStart = async () => {
     if (!currentUser) return;
     
-    // 🔴 إضافة فحص الخطأ للتأكد من نجاح العملية
-    const { error } = await supabase.from('consultations')
-      .update({ status: 'active', doctor_id: currentUser.id } as any)
+    // ✅ تصحيح: استخدام (as any) على الكائن المسترجع من from لتجاوز أخطاء TypeScript
+    const { error } = await (supabase.from('consultations') as any)
+      .update({ status: 'active', doctor_id: currentUser.id })
       .eq('id', id);
 
     if (error) {
@@ -270,8 +270,8 @@ export default function DoctorConsultationPage() {
   const handleSkip = async () => {
     if (!confirm('هل أنت متأكد من تخطي هذه الحالة؟')) return;
     
-    const { error } = await supabase.from('consultations')
-      .update({ status: 'pending', doctor_id: null } as any)
+    const { error } = await (supabase.from('consultations') as any)
+      .update({ status: 'pending', doctor_id: null })
       .eq('id', id);
 
     if (error) {
@@ -289,8 +289,8 @@ export default function DoctorConsultationPage() {
 
     const newStatus = actionType === 'refer' ? 'referred' : 'reported';
 
-    const { error } = await supabase.from('consultations')
-      .update({ status: newStatus, doctor_reply: note } as any)
+    const { error } = await (supabase.from('consultations') as any)
+      .update({ status: newStatus, doctor_reply: note })
       .eq('id', id);
 
     if (error) {
@@ -303,13 +303,12 @@ export default function DoctorConsultationPage() {
   };
 
   const handleFinish = async () => {
-    // 🔴 الحفظ النهائي مع فحص الأخطاء
-    const { error } = await supabase.from('consultations').update({
+    const { error } = await (supabase.from('consultations') as any).update({
       status: 'closed',
-      doctor_reply: JSON.stringify(replyData), // حفظ الروشتة كـ JSON string
+      doctor_reply: JSON.stringify(replyData),
       diagnosis: replyData.diagnosis,
       updated_at: new Date().toISOString()
-    } as any).eq('id', id);
+    }).eq('id', id);
 
     if (error) {
       alert('فشل حفظ الرد! تأكد من صلاحياتك: ' + error.message);
@@ -338,7 +337,7 @@ export default function DoctorConsultationPage() {
           patientName: consultation.medical_files?.full_name,
           patientId: consultation.medical_files?.id,
           patientAge: consultation.medical_files?.birth_date ? new Date().getFullYear() - new Date(consultation.medical_files.birth_date).getFullYear() : '--',
-          doctorName: 'اسم الطبيب', // يمكن جلبه من البروفايل
+          doctorName: 'اسم الطبيب',
           specialty: 'باطنة عامة'
         }}
         centerSettings={centerSettings}
@@ -348,7 +347,7 @@ export default function DoctorConsultationPage() {
     );
   }
 
-  // (باقي الكود الخاص بالـ Wizard والتفاصيل كما هو في الرسالة السابقة، تم نسخه هنا ليكون الملف كاملاً)
+  // View: Wizard
   if (view === 'wizard') {
     return (
       <div className="max-w-5xl mx-auto p-4 md:p-8 dir-rtl font-cairo bg-slate-50 min-h-screen">
