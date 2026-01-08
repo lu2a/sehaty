@@ -363,17 +363,6 @@ export default function DoctorConsultationPage() {
     router.push('/doctor/dashboard');
   };
 
-  const handleFinish = async () => {
-    const { error } = await (supabase.from('consultations') as any).update({
-      status: 'closed',
-      doctor_reply: JSON.stringify(replyData),
-      diagnosis: replyData.diagnosis,
-      updated_at: new Date().toISOString()
-    }).eq('id', id);
-
-    if (error) { alert('خطأ في الحفظ: ' + error.message); return; }
-    setView('prescription');
-  };
 
   const handleExit = () => {
     alert('تم الرد وحفظ الروشتة ✅');
