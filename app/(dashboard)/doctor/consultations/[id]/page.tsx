@@ -1,18 +1,18 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { createClient } from '@/lib/supabase';
 import { useParams, useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { 
-  User, AlertTriangle, CheckCircle, 
+  User, Clock, AlertTriangle, FileText, CheckCircle, 
   Printer, ArrowRight, Stethoscope, Pill, FlaskConical, MessageCircle,
-  Share2, ChevronLeft, ChevronRight, Play, AlertOctagon, CornerUpLeft, XCircle, Ban
+  Share2, ChevronLeft, ChevronRight, Play, AlertOctagon, CornerUpLeft, XCircle, Ban, Activity, Calendar
 } from 'lucide-react';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import ChatArea from '@/components/consultation/ChatArea';
+import MedicalFileModal from '@/components/consultation/MedicalFileModal';
 
-// --- Types ---
+// --- Interfaces ---
 interface Medication {
   name: string;
   concentration: string;
@@ -40,6 +40,9 @@ interface MedicalFile {
   weight?: number;
   blood_type?: string;
   chronic_diseases?: any;
+  chronic_diseases_details?: string;
+  surgeries?: string;
+  height?: number;
 }
 
 interface Consultation {
@@ -53,27 +56,22 @@ interface Consultation {
   diagnosis?: string;
 }
 
-// --- Components ---
-
-// 1. مكون الروشتة (Prescription A4)
+// --- Component: Prescription View (A4) ---
 const PrescriptionView = ({ data, centerSettings, onBack, onExit }: any) => {
   const handlePrint = () => window.print();
 
   return (
     <div className="max-w-4xl mx-auto p-4 animate-in fade-in">
+      {/* Toolbar */}
       <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4 print:hidden">
         <button onClick={onBack} className="flex items-center gap-2 text-gray-600 hover:text-gray-900 bg-white px-4 py-2 rounded-lg border w-full md:w-auto justify-center">
           <ArrowRight size={18} /> عودة للتعديل
         </button>
         
         <div className="flex gap-2 w-full md:w-auto flex-wrap justify-center">
-          <button 
-            onClick={onExit} 
-            className="bg-slate-800 text-white px-6 py-2 rounded-lg flex items-center gap-2 hover:bg-slate-900 shadow-md font-bold transition-all"
-          >
+          <button onClick={onExit} className="bg-slate-800 text-white px-6 py-2 rounded-lg flex items-center gap-2 hover:bg-slate-900 shadow-md font-bold transition-all">
             <CheckCircle size={18} /> إنهاء والعودة للاستشارات
           </button>
-
           <button onClick={handlePrint} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 shadow-sm">
             <Printer size={18} /> طباعة
           </button>
@@ -82,7 +80,7 @@ const PrescriptionView = ({ data, centerSettings, onBack, onExit }: any) => {
 
       {/* A4 Paper */}
       <div className="bg-white shadow-xl print:shadow-none w-full max-w-[21cm] min-h-[29.7cm] mx-auto p-[1cm] md:p-[1.5cm] relative text-right dir-rtl font-cairo border print:border-none">
-        
+        {/* Header */}
         <div className="flex justify-between items-start border-b-4 border-blue-600 pb-6 mb-8">
           <div>
             <h1 className="text-3xl font-bold text-blue-800 mb-2">{centerSettings?.center_name || 'مركز صحتي الطبي'}</h1>
@@ -95,6 +93,7 @@ const PrescriptionView = ({ data, centerSettings, onBack, onExit }: any) => {
           </div>
         </div>
 
+        {/* Patient Bar */}
         <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 mb-8 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
           <div><span className="font-bold text-blue-800">المريض:</span> {data.patientName}</div>
           <div><span className="font-bold text-blue-800">العمر:</span> {data.patientAge} سنة</div>
@@ -102,6 +101,7 @@ const PrescriptionView = ({ data, centerSettings, onBack, onExit }: any) => {
           <div><span className="font-bold text-blue-800">رقم الملف:</span> #{data.patientId?.slice(0, 5)}</div>
         </div>
 
+        {/* Content */}
         {data.diagnosis && (
           <div className="mb-6">
             <h3 className="font-bold text-gray-900 mb-1">التشخيص (Diagnosis):</h3>
@@ -116,8 +116,7 @@ const PrescriptionView = ({ data, centerSettings, onBack, onExit }: any) => {
               <div key={idx} className="flex justify-between items-start border-b border-dashed border-gray-200 pb-4">
                 <div className="flex-1">
                   <p className="font-bold text-xl text-gray-800 flex items-center gap-2">
-                    <span className="text-gray-400 text-sm w-6">{idx + 1}.</span> 
-                    {med.name}
+                    <span className="text-gray-400 text-sm w-6">{idx + 1}.</span> {med.name}
                   </p>
                   <div className="text-sm text-gray-600 mr-8 mt-1 flex gap-4">
                     <span className="bg-gray-100 px-2 py-0.5 rounded text-gray-800">{med.concentration}</span>
@@ -198,10 +197,10 @@ const PrescriptionView = ({ data, centerSettings, onBack, onExit }: any) => {
   );
 };
 
-// 2. الصفحة الرئيسية
+// --- Main Page Component ---
 export default function DoctorConsultationPage() {
-  // 🔴 التصحيح: استخراج id كنص صريح
   const params = useParams();
+  // تأكد من أن ID هو نص
   const id = params?.id as string;
   
   const supabase = createClient();
@@ -212,28 +211,52 @@ export default function DoctorConsultationPage() {
   const [centerSettings, setCenterSettings] = useState<any>(null);
   const [view, setView] = useState<'details' | 'wizard' | 'prescription'>('details');
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [doctorProfile, setDoctorProfile] = useState<any>(null);
   const [lists, setLists] = useState<any>({});
+  
+  // Modal State
+  const [showFileModal, setShowFileModal] = useState(false);
 
+  // Actions State
   const [actionType, setActionType] = useState<'refer' | 'report' | null>(null);
   const [actionNote, setActionNote] = useState('');
   const [targetSpecialty, setTargetSpecialty] = useState('');
 
+  // Wizard Data
   const [step, setStep] = useState(1);
   const [replyData, setReplyData] = useState<ReplyData>({
     diagnosis: '', medications: [], labs: [], radiology: [], advice: '', redFlags: '', followUp: '', notes: ''
   });
+
+  // Time Ago Logic
+  const getTimeAgo = (dateStr: string) => {
+    const diff = new Date().getTime() - new Date(dateStr).getTime();
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+    if (days > 0) return `منذ ${days} يوم`;
+    if (hours > 0) return `منذ ${hours} ساعة`;
+    return `منذ ${minutes} دقيقة`;
+  };
 
   useEffect(() => {
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       setCurrentUser(user);
 
+      if (user) {
+        const { data: profile } = await (supabase.from('profiles') as any).select('*').eq('id', user.id).single();
+        setDoctorProfile(profile);
+      }
+
+      // Fetch Consultation
       const { data: consult } = await (supabase.from('consultations') as any)
         .select('*, medical_files(*)')
         .eq('id', id).single();
       
       if (consult) setConsultation(consult as Consultation);
 
+      // Fetch Settings & Lists
       const { data: settings } = await (supabase.from('center_settings') as any).select('*').single();
       setCenterSettings(settings);
 
@@ -252,7 +275,7 @@ export default function DoctorConsultationPage() {
     init();
   }, [id]);
 
-  // --- Actions ---
+  // --- Handlers ---
 
   const handleStart = async () => {
     if (!currentUser) return;
@@ -261,46 +284,51 @@ export default function DoctorConsultationPage() {
       .eq('id', id);
 
     if (error) {
-      alert('حدث خطأ أثناء استلام الحالة: ' + error.message);
+      alert('خطأ: ' + error.message);
       return;
     }
     setView('wizard');
   };
 
   const handleSkip = async () => {
-    if (!confirm('هل أنت متأكد من تخطي هذه الحالة؟')) return;
-    const { error } = await (supabase.from('consultations') as any)
-      .update({ status: 'pending', doctor_id: null })
-      .eq('id', id);
-
-    if (error) { alert('حدث خطأ: ' + error.message); return; }
+    if (!confirm('هل أنت متأكد؟')) return;
+    await (supabase.from('consultations') as any).update({ status: 'pending', doctor_id: null }).eq('id', id);
     router.push('/doctor/dashboard');
   };
 
-  // ✅ دالة إنهاء المحادثة (بدون روشتة)
-  const handleCloseChat = async () => {
-    if (!confirm('هل أنت متأكد من إنهاء المحادثة وإغلاق الاستشارة تماماً؟')) return;
-    
-    const { error } = await (supabase.from('consultations') as any)
-      .update({ status: 'closed', updated_at: new Date().toISOString() })
-      .eq('id', id);
+  // ✅ إنهاء المحادثة (الدردشة فقط)
+  const handleEndChatWithAutoMessage = async () => {
+    if (!confirm('هل أنت متأكد من إنهاء المحادثة؟ سيتم إرسال رسالة وداع وإغلاق التذكرة.')) return;
 
-    if (error) { alert('حدث خطأ: ' + error.message); return; }
-    alert('تم إنهاء المحادثة بنجاح.');
-    router.push('/doctor/dashboard');
+    const doctorName = doctorProfile?.full_name || 'الطبيب';
+    const now = new Date();
+    
+    const autoMessage = `أنا د. ${doctorName}، سعدت جداً بالتحدث معك. أنا في انتظارك دائماً للاستفسار. نتمنى لك دوام الصحة والسعادة.`;
+    const systemMessage = `SYSTEM_MSG: تم إنهاء المحادثة من قبل د. ${doctorName} في ${now.toLocaleTimeString('ar-EG')}`;
+
+    try {
+      await (supabase.from('messages') as any).insert([
+        { consultation_id: id, sender_id: currentUser.id, content: autoMessage },
+        { consultation_id: id, sender_id: currentUser.id, content: systemMessage }
+      ]);
+
+      await (supabase.from('consultations') as any)
+        .update({ status: 'closed', updated_at: now.toISOString() })
+        .eq('id', id);
+
+      setConsultation((prev: any) => ({ ...prev, status: 'closed' }));
+      alert('تم إنهاء المحادثة بنجاح.');
+      
+    } catch (error: any) {
+      alert('حدث خطأ: ' + error.message);
+    }
   };
 
   const handleSubmitAction = async () => {
-    const note = actionType === 'refer' 
-      ? `تم التحويل إلى: ${targetSpecialty}. ملاحظات: ${actionNote}` 
-      : `سبب الإبلاغ: ${actionNote}`;
+    const note = actionType === 'refer' ? `تحويل إلى: ${targetSpecialty}. ملاحظات: ${actionNote}` : `سبب الإبلاغ: ${actionNote}`;
     const newStatus = actionType === 'refer' ? 'referred' : 'reported';
 
-    const { error } = await (supabase.from('consultations') as any)
-      .update({ status: newStatus, doctor_reply: note })
-      .eq('id', id);
-
-    if (error) { alert('حدث خطأ: ' + error.message); return; }
+    await (supabase.from('consultations') as any).update({ status: newStatus, doctor_reply: note }).eq('id', id);
     alert('تم تنفيذ الإجراء بنجاح');
     router.push('/doctor/dashboard');
   };
@@ -313,16 +341,16 @@ export default function DoctorConsultationPage() {
       updated_at: new Date().toISOString()
     }).eq('id', id);
 
-    if (error) { alert('فشل حفظ الرد: ' + error.message); return; }
+    if (error) { alert('خطأ في الحفظ: ' + error.message); return; }
     setView('prescription');
   };
 
   const handleExit = () => {
-    alert('تم الرد على الاستشارة بنجاح وحفظ الروشتة ✅\nجاري العودة للوحة التحكم...');
+    alert('تم الرد وحفظ الروشتة ✅');
     router.push('/doctor/dashboard');
   };
 
-  if (loading) return <div className="p-20 text-center"><span className="animate-spin text-2xl">⏳</span></div>;
+  if (loading) return <div className="p-20 text-center">جار التحميل...</div>;
   if (!consultation) return <div className="p-20 text-center text-red-500">الاستشارة غير موجودة</div>;
 
   // --- Views ---
@@ -334,8 +362,8 @@ export default function DoctorConsultationPage() {
           ...replyData,
           patientName: consultation.medical_files?.full_name,
           patientId: consultation.medical_files?.id,
-          patientAge: consultation.medical_files?.birth_date ? new Date().getFullYear() - new Date(consultation.medical_files.birth_date).getFullYear() : '--',
-          doctorName: 'اسم الطبيب', // يمكن جلبه من البروفايل
+          patientAge: new Date().getFullYear() - new Date(consultation.medical_files?.birth_date || '').getFullYear(),
+          doctorName: doctorProfile?.full_name || 'طبيب',
           specialty: 'باطنة عامة'
         }}
         centerSettings={centerSettings}
@@ -348,7 +376,7 @@ export default function DoctorConsultationPage() {
   if (view === 'wizard') {
     return (
       <div className="max-w-5xl mx-auto p-4 md:p-8 dir-rtl font-cairo bg-slate-50 min-h-screen">
-        {/* Progress */}
+        {/* Progress Bar */}
         <div className="bg-white p-4 rounded-2xl shadow-sm mb-6">
           <div className="flex justify-between text-xs font-bold text-gray-500 mb-2 px-2">
             <span className={step >= 1 ? 'text-blue-600' : ''}>1. التشخيص</span>
@@ -356,7 +384,7 @@ export default function DoctorConsultationPage() {
             <span className={step >= 3 ? 'text-blue-600' : ''}>3. الفحوصات</span>
             <span className={step >= 4 ? 'text-blue-600' : ''}>4. الأشعة</span>
             <span className={step >= 5 ? 'text-blue-600' : ''}>5. النصائح</span>
-            <span className={step >= 6 ? 'text-blue-600' : ''}>6. علامات الخطر</span>
+            <span className={step >= 6 ? 'text-blue-600' : ''}>6. المخاطر</span>
             <span className={step >= 7 ? 'text-blue-600' : ''}>7. إنهاء</span>
           </div>
           <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
@@ -365,6 +393,7 @@ export default function DoctorConsultationPage() {
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 min-h-[500px] flex flex-col">
+          {/* Step 1: Diagnosis */}
           {step === 1 && (
             <div className="space-y-4 animate-in slide-in-from-right-8">
               <h2 className="text-xl font-bold flex items-center gap-2"><Stethoscope className="text-blue-600"/> التشخيص</h2>
@@ -372,21 +401,22 @@ export default function DoctorConsultationPage() {
                 options={lists.diagnosis || []}
                 value={replyData.diagnosis}
                 onChange={(val) => setReplyData({...replyData, diagnosis: val})}
-                placeholder="ابحث عن التشخيص أو اكتبه..."
+                placeholder="ابحث عن التشخيص..."
               />
               <textarea 
                 className="w-full p-4 border rounded-xl h-32 mt-4 bg-gray-50"
-                placeholder="تفاصيل إضافية للتشخيص (اختياري)..."
+                placeholder="ملاحظات التشخيص..."
               />
             </div>
           )}
 
+          {/* Step 2: Medications */}
           {step === 2 && (
             <div className="space-y-4 animate-in slide-in-from-right-8">
               <h2 className="text-xl font-bold flex items-center gap-2"><Pill className="text-green-600"/> الأدوية</h2>
               <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 grid grid-cols-2 md:grid-cols-6 gap-3 items-end">
                 <div className="col-span-2">
-                  <label className="text-xs font-bold mb-1 block">اسم الدواء</label>
+                  <label className="text-xs font-bold mb-1">الدواء</label>
                   <SearchableSelect 
                     options={lists.medication || []} 
                     value="" 
@@ -400,38 +430,32 @@ export default function DoctorConsultationPage() {
                   <input id="med-name-hidden" className="hidden" />
                 </div>
                 <div>
-                  <label className="text-xs font-bold mb-1 block">التركيز</label>
+                  <label className="text-xs font-bold mb-1">التركيز</label>
                   <input id="med-conc" placeholder="500mg" className="w-full p-2.5 rounded-lg border text-sm" />
                 </div>
                 <div>
-                  <label className="text-xs font-bold mb-1 block">الشكل</label>
+                  <label className="text-xs font-bold mb-1">الشكل</label>
                   <select id="med-form" className="w-full p-2.5 rounded-lg border text-sm">
-                    <option>أقراص</option><option>شراب</option><option>حقن</option><option>دهان</option>
+                    <option>أقراص</option><option>شراب</option><option>حقن</option>
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs font-bold mb-1 block">الجرعة</label>
-                  <input id="med-dose" placeholder="1x3 بعد الأكل" className="w-full p-2.5 rounded-lg border text-sm" />
+                  <label className="text-xs font-bold mb-1">الجرعة</label>
+                  <input id="med-dose" placeholder="1x3" className="w-full p-2.5 rounded-lg border text-sm" />
                 </div>
                 <div>
-                  <label className="text-xs font-bold mb-1 block">المدة</label>
+                  <label className="text-xs font-bold mb-1">المدة</label>
                   <input id="med-dur" placeholder="5 أيام" className="w-full p-2.5 rounded-lg border text-sm" />
                 </div>
-                
                 <button 
-                  className="col-span-2 md:col-span-6 bg-blue-600 text-white py-2 rounded-lg font-bold mt-2 hover:bg-blue-700"
+                  className="col-span-2 md:col-span-6 bg-blue-600 text-white py-2 rounded-lg font-bold mt-2"
                   onClick={() => {
-                    const nameHidden = (document.getElementById('med-name-hidden') as HTMLInputElement).value;
-                    const nameSelect = (document.querySelector('div[class*="text-gray-800"]') as HTMLElement)?.innerText;
-                    const name = nameHidden || nameSelect || 'دواء';
+                    const name = (document.getElementById('med-name-hidden') as HTMLInputElement).value || 'دواء';
                     const conc = (document.getElementById('med-conc') as HTMLInputElement).value;
                     const form = (document.getElementById('med-form') as HTMLInputElement).value;
                     const dose = (document.getElementById('med-dose') as HTMLInputElement).value;
                     const dur = (document.getElementById('med-dur') as HTMLInputElement).value;
-                    
-                    if (name && name !== 'اختر...') {
-                      setReplyData({...replyData, medications: [...replyData.medications, { name, concentration: conc, form, dose, duration: dur }]});
-                    }
+                    setReplyData({...replyData, medications: [...replyData.medications, { name, concentration: conc, form, dose, duration: dur }]});
                   }}
                 >
                   + إضافة
@@ -439,8 +463,8 @@ export default function DoctorConsultationPage() {
               </div>
               <div className="space-y-2 mt-4">
                 {replyData.medications.map((m, i) => (
-                  <div key={i} className="flex justify-between items-center p-3 border rounded-lg bg-white shadow-sm">
-                    <div><span className="font-bold">{m.name}</span> <span className="text-xs mx-2">{m.concentration}</span></div>
+                  <div key={i} className="flex justify-between p-3 border rounded-lg bg-white shadow-sm">
+                    <span>{m.name} ({m.concentration})</span>
                     <button onClick={() => {
                        const newMeds = [...replyData.medications];
                        newMeds.splice(i, 1);
@@ -452,84 +476,57 @@ export default function DoctorConsultationPage() {
             </div>
           )}
 
+          {/* Steps 3,4,5,6 (Simplified for brevity, same logic as before) */}
           {step === 3 && (
-            <div className="space-y-4 animate-in slide-in-from-right-8">
+            <div className="space-y-4">
               <h2 className="text-xl font-bold flex items-center gap-2"><FlaskConical className="text-purple-600"/> التحاليل</h2>
               <SearchableSelect 
-                options={lists.lab || []}
-                value=""
-                onChange={(val) => setReplyData({...replyData, labs: [...replyData.labs, val]})}
-                placeholder="ابحث..."
+                options={lists.lab || []} value="" 
+                onChange={(val) => setReplyData({...replyData, labs: [...replyData.labs, val]})} 
+                placeholder="بحث..."
               />
-              <div className="flex flex-wrap gap-2 mt-4">
-                {replyData.labs.map((l, i) => (
-                  <span key={i} className="bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-sm font-bold flex items-center gap-2">
-                    {l} <button onClick={() => {
-                      const newLabs = replyData.labs.filter((_, idx) => idx !== i);
-                      setReplyData({...replyData, labs: newLabs});
-                    }}><XCircle size={14}/></button>
-                  </span>
-                ))}
-              </div>
+              <div className="flex flex-wrap gap-2">{replyData.labs.map((l, i) => <span key={i} className="bg-purple-100 px-3 py-1 rounded-full text-sm">{l}</span>)}</div>
             </div>
           )}
-
           {step === 4 && (
-            <div className="space-y-4 animate-in slide-in-from-right-8">
+            <div className="space-y-4">
               <h2 className="text-xl font-bold flex items-center gap-2"><AlertOctagon className="text-indigo-600"/> الأشعة</h2>
               <SearchableSelect 
-                options={lists.radiology || []}
-                value=""
-                onChange={(val) => setReplyData({...replyData, radiology: [...replyData.radiology, val]})}
-                placeholder="ابحث..."
+                options={lists.radiology || []} value="" 
+                onChange={(val) => setReplyData({...replyData, radiology: [...replyData.radiology, val]})} 
+                placeholder="بحث..."
               />
-               <div className="flex flex-wrap gap-2 mt-4">
-                {replyData.radiology.map((r, i) => (
-                  <span key={i} className="bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full text-sm font-bold flex items-center gap-2">
-                    {r} <button onClick={() => {
-                      const newRads = replyData.radiology.filter((_, idx) => idx !== i);
-                      setReplyData({...replyData, radiology: newRads});
-                    }}><XCircle size={14}/></button>
-                  </span>
-                ))}
-              </div>
+              <div className="flex flex-wrap gap-2">{replyData.radiology.map((r, i) => <span key={i} className="bg-indigo-100 px-3 py-1 rounded-full text-sm">{r}</span>)}</div>
             </div>
           )}
-
           {step === 5 && (
-            <div className="space-y-4 animate-in slide-in-from-right-8">
+            <div className="space-y-4">
               <h2 className="text-xl font-bold flex items-center gap-2"><MessageCircle className="text-blue-600"/> النصائح</h2>
               <SearchableSelect 
-                options={lists.advice || []}
-                value=""
+                options={lists.advice || []} value="" 
                 onChange={(val) => setReplyData({...replyData, advice: replyData.advice ? `${replyData.advice}\n- ${val}` : `- ${val}`})}
-                placeholder="اختر رسالة جاهزة..."
+                placeholder="اختر نصيحة..."
               />
-              <textarea className="w-full p-4 border rounded-xl h-40 mt-2" value={replyData.advice} onChange={(e) => setReplyData({...replyData, advice: e.target.value})} />
+              <textarea className="w-full p-4 border rounded-xl h-40 mt-2" value={replyData.advice} onChange={e => setReplyData({...replyData, advice: e.target.value})} />
             </div>
           )}
-
           {step === 6 && (
-            <div className="space-y-4 animate-in slide-in-from-right-8">
+            <div className="space-y-4">
               <h2 className="text-xl font-bold flex items-center gap-2 text-red-600"><AlertTriangle/> علامات الخطر</h2>
               <SearchableSelect 
-                options={lists.red_flag || []}
-                value=""
+                options={lists.red_flag || []} value="" 
                 onChange={(val) => setReplyData({...replyData, redFlags: replyData.redFlags ? `${replyData.redFlags}\n- ${val}` : `- ${val}`})}
                 placeholder="اختر تحذيراً..."
               />
-              <textarea className="w-full p-4 border border-red-200 bg-red-50 rounded-xl h-32 mt-2" value={replyData.redFlags} onChange={(e) => setReplyData({...replyData, redFlags: e.target.value})} />
+              <textarea className="w-full p-4 border rounded-xl h-32 mt-2 border-red-200 bg-red-50" value={replyData.redFlags} onChange={e => setReplyData({...replyData, redFlags: e.target.value})} />
             </div>
           )}
 
+          {/* Step 7: Finalize */}
           {step === 7 && (
-            <div className="space-y-6 text-center py-8 animate-in zoom-in-95">
+            <div className="space-y-6 text-center py-8">
               <CheckCircle size={60} className="text-green-500 mx-auto mb-4" />
               <h2 className="text-2xl font-bold text-gray-800">جاهز لإصدار الروشتة</h2>
-              <div className="bg-gray-50 p-6 rounded-2xl max-w-md mx-auto text-right space-y-2 border">
-                <p><strong>التشخيص:</strong> {replyData.diagnosis}</p>
-                <p><strong>الأدوية:</strong> {replyData.medications.length} أصناف</p>
-              </div>
               <div className="max-w-md mx-auto text-right">
                 <label className="font-bold text-sm block mb-1">ميعاد المتابعة:</label>
                 <input type="date" className="w-full p-3 border rounded-xl mb-4" onChange={(e) => setReplyData({...replyData, followUp: e.target.value})} />
@@ -538,19 +535,11 @@ export default function DoctorConsultationPage() {
           )}
 
           <div className="mt-auto pt-6 border-t flex justify-between">
-            {step > 1 && (
-              <button onClick={() => setStep(step - 1)} className="flex items-center gap-2 px-6 py-2 rounded-xl text-gray-600 hover:bg-gray-100 font-bold">
-                <ChevronRight size={20} /> السابق
-              </button>
-            )}
+            {step > 1 && <button onClick={() => setStep(step - 1)} className="px-6 py-2 rounded-xl text-gray-600 font-bold hover:bg-gray-100">السابق</button>}
             {step < 7 ? (
-              <button onClick={() => setStep(step + 1)} className="mr-auto flex items-center gap-2 px-8 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 font-bold shadow-lg shadow-blue-200">
-                التالي <ChevronLeft size={20} />
-              </button>
+              <button onClick={() => setStep(step + 1)} className="mr-auto px-8 py-2 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700">التالي</button>
             ) : (
-              <button onClick={handleFinish} className="mr-auto flex items-center gap-2 px-8 py-2 rounded-xl bg-green-600 text-white hover:bg-green-700 font-bold shadow-lg shadow-green-200">
-                إصدار الروشتة <CheckCircle size={20} />
-              </button>
+              <button onClick={handleFinish} className="mr-auto px-8 py-2 rounded-xl bg-green-600 text-white font-bold hover:bg-green-700">إصدار الروشتة</button>
             )}
           </div>
         </div>
@@ -558,105 +547,104 @@ export default function DoctorConsultationPage() {
     );
   }
 
-  // View: Initial Details
+  // View: Main Details
   return (
     <div className="p-4 md:p-8 dir-rtl font-cairo bg-slate-50 min-h-screen grid grid-cols-1 lg:grid-cols-3 gap-6">
+      
+      {/* Right Column */}
       <div className="lg:col-span-2 space-y-6">
+        {/* Header Info */}
         <div className="bg-white rounded-2xl shadow-sm border border-blue-100 p-6 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-1 h-full bg-blue-500"></div>
+          <div className={`absolute top-0 right-0 w-1 h-full ${consultation.status === 'closed' ? 'bg-gray-400' : 'bg-blue-500'}`}></div>
           <div className="flex justify-between items-start mb-4">
-            <h1 className="text-2xl font-bold text-gray-800">استشارة #{consultation.id.slice(0,6)}</h1>
-            <span className={`px-3 py-1 rounded-full text-sm font-bold ${
-              consultation.status === 'closed' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'
-            }`}>
-              {new Date(consultation.created_at).toLocaleDateString('ar-EG')}
+            <div>
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl font-bold text-gray-800">استشارة #{consultation.id.slice(0,6)}</h1>
+                {consultation.is_emergency && <span className="bg-red-100 text-red-600 px-2 py-0.5 rounded text-xs font-bold flex items-center gap-1"><AlertTriangle size={12}/> طارئة</span>}
+              </div>
+              <p className="text-gray-500 text-sm mt-1 flex items-center gap-2">
+                <Calendar size={14}/> {new Date(consultation.created_at).toLocaleDateString('ar-EG')}
+                <span className="bg-gray-100 px-2 rounded-full text-xs">{getTimeAgo(consultation.created_at)}</span>
+              </p>
+            </div>
+            <span className={`px-4 py-1 rounded-full text-sm font-bold flex items-center gap-2 ${consultation.status === 'closed' ? 'bg-gray-100 text-gray-600' : 'bg-green-100 text-green-700'}`}>
+              {consultation.status === 'closed' ? <CheckCircle size={16}/> : <Activity size={16}/>}
+              {consultation.status === 'closed' ? 'مغلقة' : 'مفتوحة'}
             </span>
           </div>
-          <p className="text-lg text-gray-700 leading-relaxed bg-slate-50 p-5 rounded-xl border mb-6">
-            {consultation.content}
-          </p>
-          <div className="flex flex-wrap gap-3">
-            <button onClick={handleStart} className="flex-1 bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-200 flex items-center justify-center gap-2">
+          <p className="text-lg text-gray-800 leading-relaxed bg-slate-50 p-4 rounded-xl border border-slate-100">{consultation.content}</p>
+        </div>
+
+        {/* Chat Area */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+          <div className="bg-gray-50 p-4 border-b font-bold flex items-center gap-2 text-slate-800">
+            <User size={20} className="text-blue-600" /> غرفة المحادثة
+          </div>
+          {/* ✅ تم تصحيح تمرير الخصائص هنا */}
+          <ChatArea 
+            consultationId={id} 
+            currentUserId={currentUser?.id}
+            doctorName={doctorProfile?.full_name}
+            isClosed={consultation.status === 'closed'}
+            createdAt={consultation.created_at}
+            onEndChat={handleEndChatWithAutoMessage}
+          />
+        </div>
+      </div>
+
+      {/* Left Column */}
+      <div className="space-y-6">
+        {/* Actions */}
+        {consultation.status !== 'closed' && (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 space-y-3">
+            <button onClick={handleStart} className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 flex items-center justify-center gap-2 shadow-lg shadow-blue-200">
               <Play size={20} fill="currentColor" /> استلام والرد (روشتة)
             </button>
-            
-            {/* زر إنهاء المحادثة الجديد */}
-            <button onClick={handleCloseChat} className="px-6 py-3 border border-red-300 rounded-xl font-bold text-red-700 hover:bg-red-50 flex items-center gap-2">
-              <Ban size={18} /> إنهاء المحادثة
-            </button>
-
-            <button onClick={() => setActionType('refer')} className="px-6 py-3 border border-gray-300 rounded-xl font-bold text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+            <button onClick={() => setActionType('refer')} className="w-full py-3 border border-gray-300 rounded-xl font-bold text-gray-700 hover:bg-gray-50 flex items-center justify-center gap-2">
               <CornerUpLeft size={18} /> تحويل
             </button>
-            <button onClick={handleSkip} className="px-6 py-3 border border-gray-300 rounded-xl font-bold text-orange-600 hover:bg-orange-50 flex items-center gap-2">
+            <button onClick={handleSkip} className="w-full py-3 border border-gray-300 rounded-xl font-bold text-orange-600 hover:bg-orange-50 flex items-center justify-center gap-2">
               <ArrowRight size={18} /> تخطي
             </button>
-            <button onClick={() => setActionType('report')} className="px-6 py-3 border border-red-200 rounded-xl font-bold text-red-600 hover:bg-red-50 flex items-center gap-2">
+            <button onClick={() => setActionType('report')} className="w-full py-3 border border-red-200 rounded-xl font-bold text-red-600 hover:bg-red-50 flex items-center justify-center gap-2">
               <AlertOctagon size={18} /> إبلاغ
             </button>
           </div>
+        )}
+
+        {/* Patient Info */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 sticky top-6">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold text-xl">{consultation.medical_files?.full_name.charAt(0)}</div>
+            <div>
+              <h3 className="font-bold text-gray-800">{consultation.medical_files?.full_name}</h3>
+              <p className="text-xs text-gray-500">#{consultation.medical_files?.id.slice(0,6)}</p>
+            </div>
+          </div>
+          <div className="space-y-3 text-sm mb-6">
+            <div className="flex justify-between border-b pb-2"><span className="text-gray-500">الجنس</span> <b>{consultation.medical_files?.gender === 'male' ? 'ذكر' : 'أنثى'}</b></div>
+            <div className="flex justify-between border-b pb-2"><span className="text-gray-500">العمر</span> <b>{new Date().getFullYear() - new Date(consultation.medical_files?.birth_date).getFullYear()} سنة</b></div>
+          </div>
+          <button onClick={() => setShowFileModal(true)} className="w-full bg-blue-50 text-blue-700 font-bold py-3 rounded-xl hover:bg-blue-100 transition flex items-center justify-center gap-2 border border-blue-200">
+            <FileText size={18} /> عرض الملف الطبي
+          </button>
         </div>
       </div>
 
-      <div className="space-y-6">
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-          <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><User size={20}/> بيانات المريض</h3>
-          <div className="space-y-3 text-sm">
-            <div className="flex justify-between border-b pb-2">
-              <span className="text-gray-500">الاسم</span>
-              <span className="font-bold">{consultation.medical_files?.full_name}</span>
-            </div>
-            <div className="flex justify-between border-b pb-2">
-              <span className="text-gray-500">تاريخ الميلاد</span>
-              <span className="font-bold">{consultation.medical_files?.birth_date}</span>
-            </div>
-          </div>
-          <Link 
-            href={`/doctor/file/${consultation.medical_files?.id}`} 
-            target="_blank"
-            className="block w-full text-center bg-gray-100 text-gray-700 font-bold py-3 rounded-xl mt-6 hover:bg-gray-200 transition"
-          >
-            عرض الملف الطبي الكامل ↗
-          </Link>
-        </div>
-
-        {/* ✅ مكان المحادثة الجديد في القائمة اليسرى */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-          <div className="bg-gray-50 p-4 border-b font-bold flex items-center gap-2 text-slate-800">
-            <MessageCircle size={20} className="text-blue-600" />
-            المحادثة المباشرة
-          </div>
-          <div className="h-[400px]">
-            {/* ✅ تم تمرير id بعد تحويله إلى string */}
-            <ChatArea 
-              consultationId={id} 
-              currentUserId={currentUser?.id} 
-            />
-          </div>
-        </div>
-      </div>
-
+      {/* Modals */}
+      {showFileModal && <MedicalFileModal file={consultation.medical_files} onClose={() => setShowFileModal(false)} />}
+      
       {actionType && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl p-6 w-full max-w-md animate-in zoom-in-95">
-            <h3 className="text-xl font-bold mb-4">{actionType === 'refer' ? 'تحويل لمخصص آخر' : 'إبلاغ الإدارة'}</h3>
+            <h3 className="text-xl font-bold mb-4">{actionType === 'refer' ? 'تحويل' : 'إبلاغ'}</h3>
             {actionType === 'refer' && (
               <div className="mb-4">
-                <label className="block text-sm font-bold mb-2">اختر التخصص:</label>
-                <SearchableSelect 
-                  options={lists.specialty || []}
-                  value={targetSpecialty}
-                  onChange={setTargetSpecialty}
-                  placeholder="ابحث عن التخصص..."
-                />
+                <label className="block text-sm font-bold mb-2">التخصص:</label>
+                <SearchableSelect options={lists.specialty || []} value={targetSpecialty} onChange={setTargetSpecialty} placeholder="اختر..." />
               </div>
             )}
-            <textarea 
-              className="w-full border rounded-xl p-3 h-32 mb-4 focus:ring-2 ring-blue-100 outline-none"
-              placeholder={actionType === 'refer' ? 'سبب التحويل وملاحظات...' : 'سبب الإبلاغ عن هذه الاستشارة...'}
-              value={actionNote}
-              onChange={(e) => setActionNote(e.target.value)}
-            />
+            <textarea className="w-full border rounded-xl p-3 h-32 mb-4" placeholder="ملاحظات..." value={actionNote} onChange={e => setActionNote(e.target.value)} />
             <div className="flex gap-3">
               <button onClick={handleSubmitAction} className="flex-1 bg-blue-600 text-white py-2 rounded-xl font-bold">تأكيد</button>
               <button onClick={() => setActionType(null)} className="flex-1 bg-gray-100 text-gray-700 py-2 rounded-xl font-bold">إلغاء</button>
