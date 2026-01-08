@@ -615,7 +615,9 @@ export default function DoctorConsultationPage() {
             consultationId={id} 
             currentUserId={currentUser?.id}
             doctorName={doctorProfile?.full_name}
-            isClosed={consultation.status === 'closed'}
+            // نعتبره مغلقاً فقط إذا كانت الحالة closed، أما resolved فهي مفتوحة
+            isClosed={consultation.status === 'closed'} 
+            isResolved={consultation.status === 'resolved'}
             createdAt={consultation.created_at}
             onEndChat={handleEndChatWithAutoMessage}
           />
