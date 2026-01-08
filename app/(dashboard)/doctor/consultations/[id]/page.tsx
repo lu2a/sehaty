@@ -164,8 +164,9 @@ export default function DoctorConsultationPage() {
   useEffect(() => {
     const fetchData = async () => {
       // 1. Consultation Data
-      const { data: consult } = await supabase
-        .from('consultations')
+      // 🔴 استخدمنا (as any) هنا لتجنب خطأ TypeScript
+      const { data: consult } = await (supabase
+        .from('consultations') as any)
         .select('*, medical_files(*)')
         .eq('id', id)
         .single();
@@ -175,15 +176,15 @@ export default function DoctorConsultationPage() {
         
         // 2. Full Medical History
         if (consult.medical_files?.id) {
-          const { data: file } = await supabase
-            .from('medical_files')
+          const { data: file } = await (supabase
+            .from('medical_files') as any)
             .select('*')
             .eq('id', consult.medical_files.id)
             .single();
           setMedicalFile(file);
 
-          const { data: prevConsults } = await supabase
-            .from('consultations')
+          const { data: prevConsults } = await (supabase
+            .from('consultations') as any)
             .select('*')
             .eq('medical_file_id', consult.medical_files.id)
             .neq('id', id) // Exclude current
@@ -193,7 +194,7 @@ export default function DoctorConsultationPage() {
       }
 
       // 3. Center Settings
-      const { data: settings } = await supabase.from('center_settings').select('*').single();
+      const { data: settings } = await (supabase.from('center_settings') as any).select('*').single();
       setCenterSettings(settings);
 
       setLoading(false);
@@ -209,7 +210,7 @@ export default function DoctorConsultationPage() {
     if (!user) return;
 
     // تحديث الحالة إلى قيد التنفيذ وربطها بالطبيب
-    await supabase.from('consultations').update({ 
+    await (supabase.from('consultations') as any).update({ 
       status: 'in_progress', 
       doctor_id: user.id 
     }).eq('id', id);
@@ -225,14 +226,14 @@ export default function DoctorConsultationPage() {
       ? { status: 'referred', notes: actionReason } 
       : { status: 'reported', notes: actionReason };
 
-    await supabase.from('consultations').update(updateData).eq('id', id);
+    await (supabase.from('consultations') as any).update(updateData).eq('id', id);
     alert(actionModal === 'refer' ? 'تم تحويل الحالة بنجاح' : 'تم إبلاغ الإدارة');
     router.push('/doctor/dashboard');
   };
 
   const handleFinishWizard = async () => {
     // حفظ الرد في قاعدة البيانات
-    await supabase.from('consultations').update({
+    await (supabase.from('consultations') as any).update({
       status: 'closed',
       reply_content: JSON.stringify(replyData), // تخزين البيانات كـ JSON
       updated_at: new Date()
