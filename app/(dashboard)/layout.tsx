@@ -1,8 +1,8 @@
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import Sidebar from '@/components/Sidebar';
-import BottomNav from '@/components/BottomNav';
+import Sidebar from '@/components/layout/Sidebar';
+import BottomNav from '@/components/layout/BottomNav';
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const cookieStore = cookies();
