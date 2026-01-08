@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase';
 import { Save, Building, MapPin, Phone, Mail, Globe, Clock, ImageIcon, Loader2 } from 'lucide-react';
-import ImageUpload from '@/components/ui/ImageUpload'; // تأكدنا من وجوده في ملفاتك
+import ImageUpload from '@/components/ui/ImageUpload';
 
 export default function AdminSettings() {
   const supabase = createClient();
@@ -27,8 +27,9 @@ export default function AdminSettings() {
   // جلب البيانات عند التحميل
   useEffect(() => {
     const fetchSettings = async () => {
-      const { data, error } = await supabase
-        .from('center_settings')
+      // 🔴 إضافة (as any) هنا لتجاوز فحص TypeScript للجدول الجديد
+      const { data, error } = await (supabase
+        .from('center_settings') as any)
         .select('*')
         .limit(1)
         .single();
@@ -58,10 +59,11 @@ export default function AdminSettings() {
     e.preventDefault();
     setLoading(true);
 
-    const { error } = await supabase
-      .from('center_settings')
+    // 🔴 إضافة (as any) هنا أيضاً عند الحفظ
+    const { error } = await (supabase
+      .from('center_settings') as any)
       .upsert({
-        id: formData.id || undefined, // لو مفيش ID هينشئ جديد (رغم اننا عملنا insert مبدئي)
+        id: formData.id || undefined, 
         ...formData,
         updated_at: new Date()
       });
@@ -112,7 +114,7 @@ export default function AdminSettings() {
             
             <div className="flex justify-center mb-4">
               <div className="w-full">
-                {/* استخدام مكون رفع الصور الخاص بك */}
+                {/* استخدام مكون رفع الصور */}
                 <ImageUpload 
                   value={formData.logo_url ? [formData.logo_url] : []}
                   onChange={(url) => setFormData(prev => ({ ...prev, logo_url: url }))}
@@ -208,7 +210,7 @@ export default function AdminSettings() {
                 </div>
               </div>
               
-              {/* معاينة الخريطة (اختياري لو الرابط Embed) */}
+              {/* معاينة الخريطة */}
               {formData.location_url && formData.location_url.includes('embed') && (
                 <div className="mt-4 rounded-xl overflow-hidden border">
                   <iframe src={formData.location_url} width="100%" height="250" style={{border:0}} loading="lazy"></iframe>
