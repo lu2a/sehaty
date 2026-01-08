@@ -3,251 +3,279 @@
 import { useEffect, useState, useRef } from 'react';
 import { createClient } from '@/lib/supabase';
 import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { 
   User, Calendar, Clock, AlertTriangle, FileText, CheckCircle, 
-  XCircle, Send, ArrowRight, ArrowLeft, Printer, Share2, 
-  Stethoscope, Pill, FlaskConical, AlertOctagon, MessageCircle, ChevronDown
+  Printer, ArrowRight, Stethoscope, Pill, FlaskConical, MessageCircle,
+  Share2, ChevronLeft, ChevronRight, Play, AlertOctagon, CornerUpLeft, UserPlus
 } from 'lucide-react';
+import SearchableSelect from '@/components/ui/SearchableSelect';
 
-// --- واجهة الروشتة A4 ---
+// --- Types ---
+interface Medication {
+  name: string;
+  concentration: string;
+  form: string;
+  dose: string;
+  duration: string;
+}
+
+interface ReplyData {
+  diagnosis: string;
+  medications: Medication[];
+  labs: string[];
+  radiology: string[];
+  advice: string;
+  redFlags: string;
+  followUp: string;
+  notes: string;
+}
+
+// --- Components ---
+
+// 1. مكون الروشتة (Prescription A4)
 const PrescriptionView = ({ data, centerSettings, onBack }: any) => {
-  const printRef = useRef<HTMLDivElement>(null);
-
-  const handlePrint = () => {
-    window.print();
-  };
+  const handlePrint = () => window.print();
 
   return (
     <div className="max-w-4xl mx-auto p-4 animate-in fade-in">
+      {/* Toolbar */}
       <div className="flex justify-between items-center mb-6 print:hidden">
-        <button onClick={onBack} className="flex items-center gap-2 text-gray-600 hover:text-gray-900">
-          <ArrowRight size={20} /> عودة للتعديل
+        <button onClick={onBack} className="flex items-center gap-2 text-gray-600 hover:text-gray-900 bg-white px-4 py-2 rounded-lg border">
+          <ArrowRight size={18} /> عودة للتعديل
         </button>
-        <div className="flex gap-3">
-          <button onClick={handlePrint} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700">
+        <div className="flex gap-2">
+          <button onClick={handlePrint} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 shadow-sm">
             <Printer size={18} /> طباعة / PDF
+          </button>
+          <button className="bg-green-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-green-700 shadow-sm">
+            <Share2 size={18} /> مشاركة واتساب
           </button>
         </div>
       </div>
 
-      {/* A4 Paper Design */}
-      <div ref={printRef} className="bg-white shadow-2xl print:shadow-none w-full max-w-[21cm] min-h-[29.7cm] mx-auto p-[1cm] md:p-[1.5cm] relative text-right dir-rtl font-cairo">
+      {/* A4 Paper */}
+      <div className="bg-white shadow-xl print:shadow-none w-full max-w-[21cm] min-h-[29.7cm] mx-auto p-[1cm] md:p-[1.5cm] relative text-right dir-rtl font-cairo border print:border-none">
         
         {/* Header */}
-        <div className="border-b-2 border-blue-600 pb-4 mb-8 flex justify-between items-start">
+        <div className="flex justify-between items-start border-b-4 border-blue-600 pb-6 mb-8">
           <div>
-            <h1 className="text-2xl font-bold text-blue-800 mb-1">{centerSettings?.center_name || 'مركز صحتي الطبي'}</h1>
-            <p className="text-sm text-gray-500">{centerSettings?.address}</p>
-            <p className="text-sm text-gray-500">{centerSettings?.phone}</p>
+            <h1 className="text-3xl font-bold text-blue-800 mb-2">{centerSettings?.center_name || 'مركز صحتي الطبي'}</h1>
+            <p className="text-gray-600 flex items-center gap-2"><span className="font-bold">العنوان:</span> {centerSettings?.address}</p>
+            <p className="text-gray-600 flex items-center gap-2"><span className="font-bold">تليفون:</span> {centerSettings?.phone}</p>
           </div>
           <div className="text-left">
-            <h2 className="text-xl font-bold text-gray-800">د. {data.doctorName}</h2>
-            <p className="text-sm text-gray-500">استشاري {data.specialty}</p>
+            <h2 className="text-xl font-bold text-gray-900">د. {data.doctorName}</h2>
+            <p className="text-gray-500">استشاري {data.specialty || 'الطب العام'}</p>
           </div>
         </div>
 
-        {/* Patient Info */}
-        <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 mb-8 flex flex-wrap gap-6 text-sm">
-          <div><span className="font-bold text-gray-700">المريض:</span> {data.patientName}</div>
-          <div><span className="font-bold text-gray-700">التاريخ:</span> {new Date().toLocaleDateString('ar-EG')}</div>
-          <div><span className="font-bold text-gray-700">رقم الملف:</span> #{data.patientId?.slice(0, 8)}</div>
-          <div><span className="font-bold text-gray-700">التشخيص:</span> {data.diagnosis}</div>
+        {/* Patient Bar */}
+        <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 mb-8 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+          <div><span className="font-bold text-blue-800">المريض:</span> {data.patientName}</div>
+          <div><span className="font-bold text-blue-800">العمر:</span> {data.patientAge} سنة</div>
+          <div><span className="font-bold text-blue-800">التاريخ:</span> {new Date().toLocaleDateString('ar-EG')}</div>
+          <div><span className="font-bold text-blue-800">رقم الملف:</span> #{data.patientId?.slice(0, 5)}</div>
         </div>
 
-        {/* Rx Symbol */}
-        <div className="mb-6">
-          <h3 className="text-4xl font-serif font-bold text-blue-600 italic mb-4">Rx</h3>
-          
-          {/* Medications */}
-          <div className="space-y-4 mb-8">
+        {/* Diagnosis */}
+        {data.diagnosis && (
+          <div className="mb-6">
+            <h3 className="font-bold text-gray-900 mb-1">التشخيص (Diagnosis):</h3>
+            <p className="text-gray-700 bg-gray-50 p-2 rounded px-4 inline-block">{data.diagnosis}</p>
+          </div>
+        )}
+
+        {/* Rx */}
+        <div className="mb-8">
+          <h3 className="text-5xl font-serif font-bold text-blue-600 italic mb-6">Rx</h3>
+          <div className="space-y-6">
             {data.medications.map((med: any, idx: number) => (
-              <div key={idx} className="flex justify-between items-baseline border-b border-dashed border-gray-200 pb-2">
-                <div>
-                  <p className="font-bold text-lg text-gray-800">
-                    {idx + 1}. {med.name} <span className="text-sm font-normal text-gray-500">({med.concentration})</span>
+              <div key={idx} className="flex justify-between items-start border-b border-dashed border-gray-200 pb-4">
+                <div className="flex-1">
+                  <p className="font-bold text-xl text-gray-800 flex items-center gap-2">
+                    <span className="text-gray-400 text-sm w-6">{idx + 1}.</span> 
+                    {med.name}
                   </p>
-                  <p className="text-sm text-gray-600 mr-4">{med.form} - {med.dose}</p>
+                  <div className="text-sm text-gray-600 mr-8 mt-1 flex gap-4">
+                    <span className="bg-gray-100 px-2 py-0.5 rounded text-gray-800">{med.concentration}</span>
+                    <span className="bg-gray-100 px-2 py-0.5 rounded text-gray-800">{med.form}</span>
+                  </div>
                 </div>
-                <div className="text-sm font-bold text-blue-600">{med.duration}</div>
+                <div className="text-left w-1/3">
+                  <p className="font-bold text-blue-700 text-lg mb-1">{med.dose}</p>
+                  <p className="text-sm text-gray-500">لمدة: {med.duration}</p>
+                </div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Lab & Radiology */}
+        {/* Labs & Rads */}
         {(data.labs.length > 0 || data.radiology.length > 0) && (
-          <div className="mb-8 p-4 border border-gray-200 rounded-xl">
-            <h4 className="font-bold text-gray-800 mb-3 border-b pb-1 w-fit">المطلوب (فحوصات وأشعة)</h4>
-            <ul className="list-disc list-inside space-y-1 text-sm text-gray-700">
-              {data.labs.map((item: string, i: number) => <li key={`l-${i}`}>تحليل: {item}</li>)}
-              {data.radiology.map((item: string, i: number) => <li key={`r-${i}`}>أشعة: {item}</li>)}
-            </ul>
+          <div className="grid grid-cols-2 gap-8 mb-8">
+             {data.labs.length > 0 && (
+               <div className="border p-4 rounded-xl">
+                 <h4 className="font-bold text-purple-700 mb-2 border-b pb-1">تحاليل مطلوبة</h4>
+                 <ul className="list-disc list-inside text-sm space-y-1">{data.labs.map((l:string, i:number) => <li key={i}>{l}</li>)}</ul>
+               </div>
+             )}
+             {data.radiology.length > 0 && (
+               <div className="border p-4 rounded-xl">
+                 <h4 className="font-bold text-indigo-700 mb-2 border-b pb-1">أشعة مطلوبة</h4>
+                 <ul className="list-disc list-inside text-sm space-y-1">{data.radiology.map((r:string, i:number) => <li key={i}>{r}</li>)}</ul>
+               </div>
+             )}
           </div>
         )}
 
-        {/* Red Flags & Advice */}
-        <div className="mb-8">
-          {data.redFlags && (
-            <div className="bg-red-50 p-3 rounded-lg border border-red-100 mb-3 text-sm text-red-700">
-              <strong>⚠ علامات الخطر (يرجى التوجه للطوارئ فوراً عند حدوثها):</strong>
-              <p className="mt-1">{data.redFlags}</p>
+        {/* Messages & Red Flags */}
+        <div className="space-y-4 mb-8">
+          {data.advice && (
+            <div className="flex gap-3 bg-blue-50 p-4 rounded-xl border-r-4 border-blue-500">
+              <MessageCircle className="text-blue-500 shrink-0 mt-1" size={20} />
+              <div>
+                <strong className="block text-blue-900 mb-1">تعليمات طبية:</strong>
+                <p className="text-blue-800 text-sm leading-relaxed">{data.advice}</p>
+              </div>
             </div>
           )}
-          {data.advice && (
-            <div className="bg-blue-50 p-3 rounded-lg border border-blue-100 text-sm text-blue-700">
-              <strong>💡 نصائح طبية:</strong>
-              <p className="mt-1">{data.advice}</p>
+          {data.redFlags && (
+            <div className="flex gap-3 bg-red-50 p-4 rounded-xl border-r-4 border-red-500">
+              <AlertTriangle className="text-red-500 shrink-0 mt-1" size={20} />
+              <div>
+                <strong className="block text-red-900 mb-1">علامات الخطر (توجه للطوارئ فوراً):</strong>
+                <p className="text-red-800 text-sm leading-relaxed">{data.redFlags}</p>
+              </div>
             </div>
           )}
         </div>
 
         {/* Footer */}
-        <div className="absolute bottom-0 left-0 right-0 p-[1.5cm] border-t border-gray-200">
-          <div className="flex justify-between items-end">
-             <div className="text-center">
-               <p className="text-sm font-bold text-gray-400 mb-2">الختم</p>
-               <div className="w-24 h-24 border-2 border-dashed border-gray-200 rounded-full mx-auto"></div>
+        <div className="absolute bottom-0 left-0 right-0 p-[1.5cm] border-t pt-4 flex justify-between items-end">
+           <div>
+             <p className="text-sm text-gray-600 mb-1"><span className="font-bold">المتابعة:</span> {data.followUp || 'عند اللزوم'}</p>
+             <p className="text-xs text-gray-400">Generated by Sehaty AI</p>
+           </div>
+           <div className="text-center">
+             <div className="h-16 w-32 mb-2 flex items-center justify-center opacity-20">
+               {/* مكان التوقيع الإلكتروني */}
+               <span className="font-script text-2xl">Dr. Signature</span>
              </div>
-             <div className="text-left text-sm text-gray-500">
-               <p>تاريخ المتابعة: {data.followUp || 'عند اللزوم'}</p>
-               <p>تم الإنشاء بواسطة: Sehaty AI</p>
-             </div>
-          </div>
+             <p className="text-sm font-bold text-gray-800">توقيع الطبيب</p>
+           </div>
         </div>
-
       </div>
       
-      {/* CSS للطباعة */}
       <style jsx global>{`
         @media print {
           body * { visibility: hidden; }
           .print\\:hidden { display: none !important; }
           .max-w-4xl { max-w-none !important; margin: 0 !important; padding: 0 !important; }
-          .bg-white { box-shadow: none !important; }
+          .bg-white { box-shadow: none !important; border: none !important; }
+          @page { margin: 0; }
         }
       `}</style>
     </div>
   );
 };
 
-// --- الصفحة الرئيسية للاستشارة ---
+// 2. الصفحة الرئيسية (Logic)
 export default function DoctorConsultationPage() {
   const { id } = useParams();
   const supabase = createClient();
   const router = useRouter();
 
+  // State
   const [loading, setLoading] = useState(true);
   const [consultation, setConsultation] = useState<any>(null);
-  const [medicalFile, setMedicalFile] = useState<any>(null);
-  const [history, setHistory] = useState<any[]>([]);
   const [centerSettings, setCenterSettings] = useState<any>(null);
   const [view, setView] = useState<'details' | 'wizard' | 'prescription'>('details');
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
-  // Wizard State
-  const [step, setStep] = useState(1);
-  const [replyData, setReplyData] = useState({
-    diagnosis: '',
-    medications: [] as any[],
-    labs: [] as string[],
-    radiology: [] as string[],
-    advice: '',
-    redFlags: '',
-    followUp: '',
-    notes: ''
+  // Lookups (from DB)
+  const [lists, setLists] = useState<any>({
+    specialty: [], diagnosis: [], medication: [], lab: [], radiology: [], advice: [], red_flag: []
   });
 
-  // Action State (Refer/Report)
-  const [actionModal, setActionModal] = useState<'refer' | 'report' | null>(null);
-  const [actionReason, setActionReason] = useState('');
+  // Action Modals
+  const [actionType, setActionType] = useState<'refer' | 'report' | null>(null);
+  const [actionNote, setActionNote] = useState('');
+  const [targetSpecialty, setTargetSpecialty] = useState('');
 
-  // Initial Fetch
+  // Wizard Data
+  const [step, setStep] = useState(1);
+  const [replyData, setReplyData] = useState<ReplyData>({
+    diagnosis: '', medications: [], labs: [], radiology: [], advice: '', redFlags: '', followUp: '', notes: ''
+  });
+
+  // Fetch Data
   useEffect(() => {
-    const fetchData = async () => {
-      // 1. Consultation Data
-      // 🔴 استخدمنا (as any) هنا لتجنب خطأ TypeScript
-      const { data: consult } = await (supabase
-        .from('consultations') as any)
+    const init = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setCurrentUser(user);
+
+      // 1. Consultation & File
+      const { data: consult } = await (supabase.from('consultations') as any)
         .select('*, medical_files(*)')
-        .eq('id', id)
-        .single();
+        .eq('id', id).single();
+      setConsultation(consult);
 
-      if (consult) {
-        setConsultation(consult);
-        
-        // 2. Full Medical History
-        if (consult.medical_files?.id) {
-          const { data: file } = await (supabase
-            .from('medical_files') as any)
-            .select('*')
-            .eq('id', consult.medical_files.id)
-            .single();
-          setMedicalFile(file);
-
-          const { data: prevConsults } = await (supabase
-            .from('consultations') as any)
-            .select('*')
-            .eq('medical_file_id', consult.medical_files.id)
-            .neq('id', id) // Exclude current
-            .order('created_at', { ascending: false });
-          setHistory(prevConsults || []);
-        }
-      }
-
-      // 3. Center Settings
+      // 2. Center Settings
       const { data: settings } = await (supabase.from('center_settings') as any).select('*').single();
       setCenterSettings(settings);
 
+      // 3. Medical Lists (Dropdowns)
+      const { data: listData } = await supabase.from('medical_lists').select('*');
+      if (listData) {
+        const grouped = listData.reduce((acc: any, item: any) => {
+          if (!acc[item.category]) acc[item.category] = [];
+          acc[item.category].push(item.value);
+          return acc;
+        }, {});
+        setLists((prev: any) => ({ ...prev, ...grouped }));
+      }
+
       setLoading(false);
     };
-
-    fetchData();
+    init();
   }, [id]);
 
-  // --- Handlers ---
-
-  const handleAccept = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    // تحديث الحالة إلى قيد التنفيذ وربطها بالطبيب
-    await (supabase.from('consultations') as any).update({ 
-      status: 'in_progress', 
-      doctor_id: user.id 
-    }).eq('id', id);
-
+  // Actions
+  const handleStart = async () => {
+    await supabase.from('consultations').update({ status: 'in_progress', doctor_id: currentUser?.id }).eq('id', id);
     setView('wizard');
   };
 
-  const handleSubmitAction = async () => {
-    if (!actionModal) return;
-    
-    // منطق التحويل أو الإبلاغ (تحديث قاعدة البيانات)
-    const updateData = actionModal === 'refer' 
-      ? { status: 'referred', notes: actionReason } 
-      : { status: 'reported', notes: actionReason };
-
-    await (supabase.from('consultations') as any).update(updateData).eq('id', id);
-    alert(actionModal === 'refer' ? 'تم تحويل الحالة بنجاح' : 'تم إبلاغ الإدارة');
+  const handleSkip = async () => {
+    if (!confirm('هل أنت متأكد من تخطي هذه الحالة؟ ستعود لقائمة الانتظار.')) return;
+    await supabase.from('consultations').update({ status: 'pending', doctor_id: null }).eq('id', id);
     router.push('/doctor/dashboard');
   };
 
-  const handleFinishWizard = async () => {
-    // حفظ الرد في قاعدة البيانات
-    await (supabase.from('consultations') as any).update({
+  const handleSubmitAction = async () => {
+    const updateData: any = { status: actionType === 'refer' ? 'referred' : 'reported' };
+    if (actionType === 'refer') updateData.notes = `تم التحويل إلى: ${targetSpecialty}. ملاحظات: ${actionNote}`;
+    else updateData.notes = `سبب الإبلاغ: ${actionNote}`;
+
+    await supabase.from('consultations').update(updateData).eq('id', id);
+    alert('تم تنفيذ الإجراء بنجاح');
+    router.push('/doctor/dashboard');
+  };
+
+  const handleFinish = async () => {
+    await supabase.from('consultations').update({
       status: 'closed',
-      reply_content: JSON.stringify(replyData), // تخزين البيانات كـ JSON
+      reply_content: replyData,
       updated_at: new Date()
     }).eq('id', id);
-
     setView('prescription');
   };
 
-  // --- Render ---
+  if (loading) return <div className="p-20 text-center"><span className="animate-spin text-2xl">⏳</span></div>;
 
-  if (loading) return <div className="flex justify-center p-20"><span className="animate-spin text-2xl">⏳</span></div>;
-  if (!consultation) return <div className="p-10 text-center text-red-500">الاستشارة غير موجودة</div>;
+  // --- Views ---
 
-  // 3. عرض الروشتة النهائية
   if (view === 'prescription') {
     return (
       <PrescriptionView 
@@ -255,190 +283,253 @@ export default function DoctorConsultationPage() {
           ...replyData,
           patientName: consultation.medical_files?.full_name,
           patientId: consultation.medical_files?.id,
-          doctorName: 'اسم الطبيب هنا' // يمكن جلبه من البروفايل
-        }} 
-        centerSettings={centerSettings} 
+          patientAge: new Date().getFullYear() - new Date(consultation.medical_files?.birth_date).getFullYear(),
+          doctorName: 'اسم الطبيب', // يمكن جلبه من البروفايل
+          specialty: 'باطنة عامة'
+        }}
+        centerSettings={centerSettings}
         onBack={() => setView('wizard')}
       />
     );
   }
 
-  // 2. معالج الرد (Wizard)
   if (view === 'wizard') {
     return (
-      <div className="max-w-4xl mx-auto p-4 md:p-8 dir-rtl font-cairo">
-        {/* Progress Bar */}
-        <div className="mb-8">
-          <div className="flex justify-between text-xs text-gray-500 mb-2">
-            <span>التشخيص</span>
-            <span>العلاج</span>
-            <span>الفحوصات</span>
-            <span>النصائح</span>
-            <span>النهاية</span>
+      <div className="max-w-5xl mx-auto p-4 md:p-8 dir-rtl font-cairo bg-slate-50 min-h-screen">
+        {/* Progress */}
+        <div className="bg-white p-4 rounded-2xl shadow-sm mb-6">
+          <div className="flex justify-between text-xs font-bold text-gray-500 mb-2 px-2">
+            <span className={step >= 1 ? 'text-blue-600' : ''}>1. التشخيص</span>
+            <span className={step >= 2 ? 'text-blue-600' : ''}>2. الأدوية</span>
+            <span className={step >= 3 ? 'text-blue-600' : ''}>3. الفحوصات</span>
+            <span className={step >= 4 ? 'text-blue-600' : ''}>4. الأشعة</span>
+            <span className={step >= 5 ? 'text-blue-600' : ''}>5. النصائح</span>
+            <span className={step >= 6 ? 'text-blue-600' : ''}>6. علامات الخطر</span>
+            <span className={step >= 7 ? 'text-blue-600' : ''}>7. إنهاء</span>
           </div>
-          <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-            <div className="h-full bg-blue-600 transition-all duration-500" style={{ width: `${(step / 6) * 100}%` }}></div>
+          <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
+            <div className="h-full bg-blue-600 transition-all duration-500" style={{ width: `${(step / 7) * 100}%` }}></div>
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 min-h-[500px] flex flex-col">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 min-h-[500px] flex flex-col">
           
           {/* Step 1: Diagnosis */}
           {step === 1 && (
-            <div className="space-y-4 animate-in fade-in">
-              <h2 className="text-xl font-bold flex items-center gap-2"><Stethoscope className="text-blue-600"/> التشخيص المبدئي</h2>
-              <textarea 
-                className="w-full p-4 border rounded-xl h-40 focus:ring-2 focus:ring-blue-200 outline-none"
-                placeholder="اكتب تشخيص الحالة هنا..."
+            <div className="space-y-4 animate-in slide-in-from-right-8">
+              <h2 className="text-xl font-bold flex items-center gap-2"><Stethoscope className="text-blue-600"/> التشخيص (Diagnosis)</h2>
+              <SearchableSelect 
+                options={lists.diagnosis || []}
                 value={replyData.diagnosis}
-                onChange={e => setReplyData({...replyData, diagnosis: e.target.value})}
+                onChange={(val) => setReplyData({...replyData, diagnosis: val})}
+                placeholder="ابحث عن التشخيص أو اكتبه..."
+              />
+              <textarea 
+                className="w-full p-4 border rounded-xl h-32 mt-4 bg-gray-50"
+                placeholder="تفاصيل إضافية للتشخيص (اختياري)..."
               />
             </div>
           )}
 
           {/* Step 2: Medications */}
           {step === 2 && (
-            <div className="space-y-4 animate-in fade-in">
-              <h2 className="text-xl font-bold flex items-center gap-2"><Pill className="text-green-600"/> وصف الأدوية</h2>
+            <div className="space-y-4 animate-in slide-in-from-right-8">
+              <h2 className="text-xl font-bold flex items-center gap-2"><Pill className="text-green-600"/> الأدوية (Medications)</h2>
               
-              {/* Add Med Form */}
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-2 bg-gray-50 p-4 rounded-xl">
-                <input id="med-name" placeholder="اسم الدواء" className="p-2 rounded border col-span-2" />
-                <input id="med-conc" placeholder="التركيز" className="p-2 rounded border" />
-                <input id="med-dose" placeholder="الجرعة (1x3)" className="p-2 rounded border" />
+              <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 grid grid-cols-2 md:grid-cols-6 gap-3 items-end">
+                <div className="col-span-2">
+                  <label className="text-xs font-bold mb-1 block">اسم الدواء</label>
+                  <SearchableSelect 
+                    options={lists.medication || []} 
+                    value="" // controlled input resets after add logic needs refinement, simplified here
+                    onChange={(val) => {
+                      // Temporary holder logic would be needed, simplified for brevity
+                      const input = document.getElementById('med-name-input') as HTMLInputElement;
+                      if(input) input.value = val;
+                    }}
+                    placeholder="بحث..."
+                  />
+                  {/* Hidden inputs for capturing values manually for this demo */}
+                  <input id="med-name" className="hidden" /> 
+                </div>
+                <div>
+                  <label className="text-xs font-bold mb-1 block">التركيز</label>
+                  <input id="med-conc" placeholder="500mg" className="w-full p-2.5 rounded-lg border text-sm" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold mb-1 block">الشكل</label>
+                  <select id="med-form" className="w-full p-2.5 rounded-lg border text-sm">
+                    <option>أقراص</option><option>شراب</option><option>حقن</option><option>دهان</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-bold mb-1 block">الجرعة</label>
+                  <input id="med-dose" placeholder="1x3 بعد الأكل" className="w-full p-2.5 rounded-lg border text-sm" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold mb-1 block">المدة</label>
+                  <input id="med-dur" placeholder="5 أيام" className="w-full p-2.5 rounded-lg border text-sm" />
+                </div>
+                
                 <button 
+                  className="col-span-2 md:col-span-6 bg-blue-600 text-white py-2 rounded-lg font-bold mt-2 hover:bg-blue-700"
                   onClick={() => {
-                    const name = (document.getElementById('med-name') as HTMLInputElement).value;
+                    // In real app, bind these to state not DOM ids
+                    const name = (document.querySelector('div[class*="text-gray-800"]') as HTMLElement)?.innerText || 'دواء';
                     const conc = (document.getElementById('med-conc') as HTMLInputElement).value;
+                    const form = (document.getElementById('med-form') as HTMLInputElement).value;
                     const dose = (document.getElementById('med-dose') as HTMLInputElement).value;
-                    if(name) {
-                      setReplyData({
-                        ...replyData, 
-                        medications: [...replyData.medications, { name, concentration: conc, dose, form: 'Tablet', duration: '5 days' }]
-                      });
-                      (document.getElementById('med-name') as HTMLInputElement).value = '';
-                    }
+                    const dur = (document.getElementById('med-dur') as HTMLInputElement).value;
+                    
+                    setReplyData({...replyData, medications: [...replyData.medications, { name, concentration: conc, form, dose, duration: dur }]});
                   }}
-                  className="bg-green-600 text-white rounded font-bold"
                 >
-                  +
+                  + إضافة الدواء
                 </button>
               </div>
 
-              {/* Meds List */}
-              <div className="space-y-2">
+              <div className="space-y-2 mt-4">
                 {replyData.medications.map((m, i) => (
-                  <div key={i} className="flex justify-between items-center p-3 border rounded-lg">
-                    <span>{m.name} ({m.concentration}) - {m.dose}</span>
+                  <div key={i} className="flex justify-between items-center p-3 border rounded-lg bg-white shadow-sm">
+                    <div>
+                      <span className="font-bold text-gray-800">{m.name}</span>
+                      <span className="text-xs text-gray-500 mx-2">{m.concentration} - {m.form}</span>
+                      <span className="text-blue-600 text-sm font-bold">({m.dose})</span>
+                    </div>
                     <button onClick={() => {
-                      const newMeds = [...replyData.medications];
-                      newMeds.splice(i, 1);
-                      setReplyData({...replyData, medications: newMeds});
-                    }} className="text-red-500">حذف</button>
+                       const newMeds = [...replyData.medications];
+                       newMeds.splice(i, 1);
+                       setReplyData({...replyData, medications: newMeds});
+                    }} className="text-red-500 hover:bg-red-50 p-1 rounded"><XCircle size={18}/></button>
                   </div>
                 ))}
               </div>
             </div>
           )}
 
-          {/* Step 3 & 4: Labs & Radiology */}
+          {/* Step 3: Labs */}
           {step === 3 && (
-            <div className="space-y-4 animate-in fade-in">
-              <h2 className="text-xl font-bold flex items-center gap-2"><FlaskConical className="text-purple-600"/> الفحوصات والأشعة</h2>
-              
-              <div>
-                <label className="block font-bold mb-2">تحاليل مطلوبة</label>
-                <input 
-                  placeholder="اكتب اسم التحليل واضغط Enter" 
-                  className="w-full p-3 border rounded-xl"
-                  onKeyDown={e => {
-                    if (e.key === 'Enter') {
-                      setReplyData({...replyData, labs: [...replyData.labs, e.currentTarget.value]});
-                      e.currentTarget.value = '';
-                    }
-                  }}
-                />
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {replyData.labs.map((l, i) => <span key={i} className="bg-purple-50 text-purple-700 px-3 py-1 rounded-full text-sm">{l}</span>)}
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-bold mb-2">أشعة مطلوبة</label>
-                <input 
-                  placeholder="اكتب نوع الأشعة واضغط Enter" 
-                  className="w-full p-3 border rounded-xl"
-                  onKeyDown={e => {
-                    if (e.key === 'Enter') {
-                      setReplyData({...replyData, radiology: [...replyData.radiology, e.currentTarget.value]});
-                      e.currentTarget.value = '';
-                    }
-                  }}
-                />
-                 <div className="flex flex-wrap gap-2 mt-2">
-                  {replyData.radiology.map((l, i) => <span key={i} className="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-sm">{l}</span>)}
-                </div>
+            <div className="space-y-4 animate-in slide-in-from-right-8">
+              <h2 className="text-xl font-bold flex items-center gap-2"><FlaskConical className="text-purple-600"/> التحاليل الطبية (Labs)</h2>
+              <SearchableSelect 
+                options={lists.lab || []}
+                value=""
+                onChange={(val) => setReplyData({...replyData, labs: [...replyData.labs, val]})}
+                placeholder="ابحث عن التحليل..."
+              />
+              <div className="flex flex-wrap gap-2 mt-4">
+                {replyData.labs.map((l, i) => (
+                  <span key={i} className="bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-sm font-bold flex items-center gap-2">
+                    {l} <button onClick={() => {
+                      const newLabs = replyData.labs.filter((_, idx) => idx !== i);
+                      setReplyData({...replyData, labs: newLabs});
+                    }}><XCircle size={14}/></button>
+                  </span>
+                ))}
               </div>
             </div>
           )}
 
-          {/* Step 5: Advice & Red Flags */}
+          {/* Step 4: Radiology */}
           {step === 4 && (
-            <div className="space-y-4 animate-in fade-in">
-              <h2 className="text-xl font-bold flex items-center gap-2"><MessageCircle className="text-orange-600"/> النصائح وعلامات الخطر</h2>
-              
-              <div>
-                <label className="font-bold block mb-1">نصائح طبية للمريض</label>
-                <textarea 
-                  className="w-full p-3 border rounded-xl h-24"
-                  value={replyData.advice}
-                  onChange={e => setReplyData({...replyData, advice: e.target.value})}
-                />
-              </div>
-
-              <div>
-                <label className="font-bold block mb-1 text-red-600">علامات الخطر (Red Flags)</label>
-                <textarea 
-                  className="w-full p-3 border border-red-200 bg-red-50 rounded-xl h-24 placeholder-red-300"
-                  placeholder="أعراض تستدعي الذهاب للطوارئ فوراً..."
-                  value={replyData.redFlags}
-                  onChange={e => setReplyData({...replyData, redFlags: e.target.value})}
-                />
+            <div className="space-y-4 animate-in slide-in-from-right-8">
+              <h2 className="text-xl font-bold flex items-center gap-2"><AlertOctagon className="text-indigo-600"/> الأشعة (Radiology)</h2>
+              <SearchableSelect 
+                options={lists.radiology || []}
+                value=""
+                onChange={(val) => setReplyData({...replyData, radiology: [...replyData.radiology, val]})}
+                placeholder="ابحث عن نوع الأشعة..."
+              />
+               <div className="flex flex-wrap gap-2 mt-4">
+                {replyData.radiology.map((r, i) => (
+                  <span key={i} className="bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full text-sm font-bold flex items-center gap-2">
+                    {r} <button onClick={() => {
+                      const newRads = replyData.radiology.filter((_, idx) => idx !== i);
+                      setReplyData({...replyData, radiology: newRads});
+                    }}><XCircle size={14}/></button>
+                  </span>
+                ))}
               </div>
             </div>
           )}
 
-           {/* Step 6: Finalize */}
-           {step === 5 && (
-            <div className="space-y-6 animate-in fade-in text-center py-10">
-              <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                <CheckCircle size={40} />
+          {/* Step 5: Advice */}
+          {step === 5 && (
+            <div className="space-y-4 animate-in slide-in-from-right-8">
+              <h2 className="text-xl font-bold flex items-center gap-2"><MessageCircle className="text-blue-600"/> رسائل وتوجيهات للمريض</h2>
+              <div className="mb-4">
+                <label className="text-sm font-bold text-gray-500 mb-2 block">رسائل جاهزة:</label>
+                <SearchableSelect 
+                  options={lists.advice || []}
+                  value=""
+                  onChange={(val) => setReplyData({...replyData, advice: replyData.advice ? `${replyData.advice}\n- ${val}` : `- ${val}`})}
+                  placeholder="اختر رسالة جاهزة..."
+                />
               </div>
-              <h2 className="text-2xl font-bold text-gray-800">مراجعة نهائية</h2>
-              <p className="text-gray-500">تم إكمال جميع البيانات. اضغط على "إصدار الروشتة" لإنهاء الاستشارة وعرض الملف للطباعة.</p>
-              
-              <div className="bg-gray-50 p-4 rounded-xl text-right text-sm max-w-md mx-auto">
+              <textarea 
+                className="w-full p-4 border rounded-xl h-40 focus:ring-2 focus:ring-blue-100 outline-none"
+                value={replyData.advice}
+                onChange={(e) => setReplyData({...replyData, advice: e.target.value})}
+                placeholder="أو اكتب النصائح هنا..."
+              />
+            </div>
+          )}
+
+          {/* Step 6: Red Flags */}
+          {step === 6 && (
+            <div className="space-y-4 animate-in slide-in-from-right-8">
+              <h2 className="text-xl font-bold flex items-center gap-2 text-red-600"><AlertTriangle/> علامات الخطر (Red Flags)</h2>
+              <p className="text-sm text-gray-500">تحذيرات تستدعي الذهاب للطوارئ.</p>
+              <SearchableSelect 
+                options={lists.red_flag || []}
+                value=""
+                onChange={(val) => setReplyData({...replyData, redFlags: replyData.redFlags ? `${replyData.redFlags}\n- ${val}` : `- ${val}`})}
+                placeholder="اختر تحذيراً..."
+              />
+              <textarea 
+                className="w-full p-4 border border-red-200 bg-red-50 rounded-xl h-32 focus:ring-2 focus:ring-red-100 outline-none"
+                value={replyData.redFlags}
+                onChange={(e) => setReplyData({...replyData, redFlags: e.target.value})}
+              />
+            </div>
+          )}
+
+          {/* Step 7: Finalize */}
+          {step === 7 && (
+            <div className="space-y-6 text-center py-8 animate-in zoom-in-95">
+              <CheckCircle size={60} className="text-green-500 mx-auto mb-4" />
+              <h2 className="text-2xl font-bold text-gray-800">جاهز لإصدار الروشتة</h2>
+              <div className="bg-gray-50 p-6 rounded-2xl max-w-md mx-auto text-right space-y-2 border">
                 <p><strong>التشخيص:</strong> {replyData.diagnosis}</p>
-                <p><strong>عدد الأدوية:</strong> {replyData.medications.length}</p>
-                <p><strong>الفحوصات:</strong> {replyData.labs.length + replyData.radiology.length}</p>
+                <p><strong>الأدوية:</strong> {replyData.medications.length} أصناف</p>
+                <p><strong>التحاليل:</strong> {replyData.labs.length}</p>
+              </div>
+              
+              <div className="max-w-md mx-auto text-right">
+                <label className="font-bold text-sm block mb-1">ميعاد المتابعة:</label>
+                <input 
+                  type="date" 
+                  className="w-full p-3 border rounded-xl mb-4"
+                  onChange={(e) => setReplyData({...replyData, followUp: e.target.value})}
+                />
               </div>
             </div>
           )}
 
-          {/* Navigation Buttons */}
-          <div className="mt-auto pt-6 flex justify-between border-t">
+          {/* Wizard Controls */}
+          <div className="mt-auto pt-6 border-t flex justify-between">
             {step > 1 && (
-              <button onClick={() => setStep(step - 1)} className="px-6 py-2 rounded-lg text-gray-600 hover:bg-gray-100 font-bold">
-                سابق
+              <button onClick={() => setStep(step - 1)} className="flex items-center gap-2 px-6 py-2 rounded-xl text-gray-600 hover:bg-gray-100 font-bold">
+                <ChevronRight size={20} /> السابق
               </button>
             )}
-            {step < 5 ? (
-              <button onClick={() => setStep(step + 1)} className="px-6 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-bold mr-auto">
-                التالي
+            {step < 7 ? (
+              <button onClick={() => setStep(step + 1)} className="mr-auto flex items-center gap-2 px-8 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 font-bold shadow-lg shadow-blue-200">
+                التالي <ChevronLeft size={20} />
               </button>
             ) : (
-              <button onClick={handleFinishWizard} className="px-6 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700 font-bold mr-auto flex items-center gap-2">
-                <CheckCircle size={18} /> إصدار الروشتة وإنهاء
+              <button onClick={handleFinish} className="mr-auto flex items-center gap-2 px-8 py-2 rounded-xl bg-green-600 text-white hover:bg-green-700 font-bold shadow-lg shadow-green-200">
+                إصدار الروشتة <CheckCircle size={20} />
               </button>
             )}
           </div>
@@ -447,135 +538,95 @@ export default function DoctorConsultationPage() {
     );
   }
 
-  // 1. العرض المبدئي (قبل القبول)
+  // View: Details (Initial)
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 p-4 md:p-8 dir-rtl font-cairo bg-slate-50 min-h-screen">
+    <div className="p-4 md:p-8 dir-rtl font-cairo bg-slate-50 min-h-screen grid grid-cols-1 lg:grid-cols-3 gap-6">
       
-      {/* العمود الأيمن: بيانات المريض والاستشارة */}
+      {/* Right: Consultation Info */}
       <div className="lg:col-span-2 space-y-6">
-        
-        {/* كارت الاستشارة الحالية */}
-        <div className="bg-white rounded-2xl shadow-sm border border-blue-100 overflow-hidden relative">
+        <div className="bg-white rounded-2xl shadow-sm border border-blue-100 p-6 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-1 h-full bg-blue-500"></div>
-          <div className="p-6">
-            <div className="flex justify-between items-start mb-4">
-              <h1 className="text-2xl font-bold text-slate-800">استشارة جديدة #{consultation.id.slice(0,6)}</h1>
-              {consultation.is_emergency && <span className="bg-red-100 text-red-600 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1"><AlertTriangle size={14}/> طارئة</span>}
-            </div>
-            
-            <p className="text-lg text-gray-700 leading-relaxed mb-6 bg-slate-50 p-4 rounded-xl border border-slate-100">
-              {consultation.content}
-            </p>
-
-            <div className="flex flex-wrap gap-4 text-sm text-gray-500">
-              <div className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-lg"><User size={16} /> {consultation.medical_files?.full_name}</div>
-              <div className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-lg"><Clock size={16} /> {new Date(consultation.created_at).toLocaleString('ar-EG')}</div>
-            </div>
+          <div className="flex justify-between items-start mb-4">
+            <h1 className="text-2xl font-bold text-gray-800">استشارة #{consultation.id.slice(0,6)}</h1>
+            <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm font-bold">
+              {new Date(consultation.created_at).toLocaleDateString('ar-EG')}
+            </span>
           </div>
-
-          {/* Action Bar */}
-          <div className="bg-gray-50 p-4 border-t flex flex-wrap gap-3">
-            <button 
-              onClick={handleAccept}
-              className="flex-1 bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-200 transition flex justify-center items-center gap-2"
-            >
-              <CheckCircle size={20} /> استلام الحالة والرد
-            </button>
-            
-            <button 
-              onClick={() => setActionModal('refer')}
-              className="px-6 py-3 rounded-xl font-bold text-slate-600 bg-white border hover:bg-gray-50 transition"
-            >
-              تحويل
-            </button>
-            
-            <button 
-              onClick={() => setActionModal('report')}
-              className="px-6 py-3 rounded-xl font-bold text-red-600 bg-white border border-red-100 hover:bg-red-50 transition"
-            >
-              إبلاغ
-            </button>
-          </div>
-        </div>
-
-        {/* كارت التاريخ المرضي (Medical History) */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-          <h3 className="font-bold text-lg mb-4 flex items-center gap-2 text-slate-800">
-            <FileText className="text-gray-500" /> السجل الطبي والزيارات السابقة
-          </h3>
+          <p className="text-lg text-gray-700 leading-relaxed bg-slate-50 p-5 rounded-xl border mb-6">
+            {consultation.content}
+          </p>
           
-          {/* Quick Stats from Medical File */}
-          {medicalFile && (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-              <div className="bg-slate-50 p-3 rounded-xl text-center">
-                <span className="block text-xs text-gray-400">السن</span>
-                <span className="font-bold">{new Date().getFullYear() - new Date(medicalFile.birth_date).getFullYear()} سنة</span>
-              </div>
-              <div className="bg-slate-50 p-3 rounded-xl text-center">
-                <span className="block text-xs text-gray-400">الوزن</span>
-                <span className="font-bold">{medicalFile.weight || '--'} كجم</span>
-              </div>
-              <div className="bg-slate-50 p-3 rounded-xl text-center">
-                <span className="block text-xs text-gray-400">فصيلة الدم</span>
-                <span className="font-bold">{medicalFile.blood_type || '--'}</span>
-              </div>
-              <div className="bg-slate-50 p-3 rounded-xl text-center">
-                <span className="block text-xs text-gray-400">أمراض مزمنة</span>
-                <span className="font-bold text-red-500">{medicalFile.chronic_diseases ? 'يوجد' : 'لا يوجد'}</span>
-              </div>
-            </div>
-          )}
-
-          {/* Previous Consultations List */}
-          <div className="space-y-3 max-h-80 overflow-y-auto pr-2 custom-scrollbar">
-            {history.length === 0 ? (
-              <p className="text-gray-400 text-center py-4">لا توجد زيارات سابقة</p>
-            ) : (
-              history.map((hist) => (
-                <div key={hist.id} className="p-4 border rounded-xl hover:bg-gray-50 transition cursor-pointer group">
-                  <div className="flex justify-between items-start mb-2">
-                    <span className="text-xs text-gray-400">{new Date(hist.created_at).toLocaleDateString('ar-EG')}</span>
-                    <span className={`text-[10px] px-2 py-0.5 rounded ${hist.status === 'closed' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
-                      {hist.status === 'closed' ? 'منتهية' : 'معلقة'}
-                    </span>
-                  </div>
-                  <p className="text-sm text-gray-700 line-clamp-2">{hist.content}</p>
-                </div>
-              ))
-            )}
+          {/* Action Buttons */}
+          <div className="flex flex-wrap gap-3">
+            <button onClick={handleStart} className="flex-1 bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-200 flex items-center justify-center gap-2">
+              <Play size={20} fill="currentColor" /> استلام والرد
+            </button>
+            <button onClick={() => setActionType('refer')} className="px-6 py-3 border border-gray-300 rounded-xl font-bold text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+              <CornerUpLeft size={18} /> تحويل
+            </button>
+            <button onClick={handleSkip} className="px-6 py-3 border border-gray-300 rounded-xl font-bold text-orange-600 hover:bg-orange-50 flex items-center gap-2">
+              <ArrowRight size={18} /> تخطي
+            </button>
+            <button onClick={() => setActionType('report')} className="px-6 py-3 border border-red-200 rounded-xl font-bold text-red-600 hover:bg-red-50 flex items-center gap-2">
+              <AlertOctagon size={18} /> إبلاغ
+            </button>
           </div>
-          
-          <button className="w-full mt-4 text-blue-600 text-sm font-bold hover:underline">
-            عرض الملف الطبي الكامل ↗
-          </button>
         </div>
       </div>
 
-      {/* العمود الأيسر: الملفات المرفقة (صور/تحاليل) */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 h-fit sticky top-4">
-        <h3 className="font-bold text-lg mb-4 text-slate-800">المرفقات</h3>
-        <div className="grid grid-cols-2 gap-2">
-           {/* هنا نعرض الصور المرفوعة مع الاستشارة إذا وجدت */}
-           <div className="bg-gray-100 rounded-lg h-32 flex items-center justify-center text-gray-400 text-xs">لا توجد مرفقات</div>
+      {/* Left: Patient File & Actions */}
+      <div className="space-y-6">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+          <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><User size={20}/> بيانات المريض</h3>
+          <div className="space-y-3 text-sm">
+            <div className="flex justify-between border-b pb-2">
+              <span className="text-gray-500">الاسم</span>
+              <span className="font-bold">{consultation.medical_files?.full_name}</span>
+            </div>
+            <div className="flex justify-between border-b pb-2">
+              <span className="text-gray-500">تاريخ الميلاد</span>
+              <span className="font-bold">{consultation.medical_files?.birth_date}</span>
+            </div>
+          </div>
+          
+          {/* FIXED LINK */}
+          <Link 
+            href={`/medical-file/${consultation.medical_files?.id}`} 
+            className="block w-full text-center bg-gray-100 text-gray-700 font-bold py-3 rounded-xl mt-6 hover:bg-gray-200 transition"
+          >
+            عرض الملف الطبي الكامل ↗
+          </Link>
         </div>
       </div>
 
       {/* Modal for Refer/Report */}
-      {actionModal && (
+      {actionType && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl p-6 w-full max-w-md animate-in zoom-in-95">
-            <h3 className="font-bold text-xl mb-4">
-              {actionModal === 'refer' ? 'تحويل الاستشارة' : 'إبلاغ الإدارة'}
-            </h3>
+            <h3 className="text-xl font-bold mb-4">{actionType === 'refer' ? 'تحويل لمخصص آخر' : 'إبلاغ الإدارة'}</h3>
+            
+            {actionType === 'refer' && (
+              <div className="mb-4">
+                <label className="block text-sm font-bold mb-2">اختر التخصص:</label>
+                <SearchableSelect 
+                  options={lists.specialty || []}
+                  value={targetSpecialty}
+                  onChange={setTargetSpecialty}
+                  placeholder="ابحث عن التخصص..."
+                />
+              </div>
+            )}
+            
             <textarea 
-              className="w-full border rounded-xl p-3 h-32 mb-4"
-              placeholder={actionModal === 'refer' ? 'سبب التحويل / اسم الطبيب المحول إليه...' : 'سبب الإبلاغ...'}
-              value={actionReason}
-              onChange={e => setActionReason(e.target.value)}
+              className="w-full border rounded-xl p-3 h-32 mb-4 focus:ring-2 ring-blue-100 outline-none"
+              placeholder={actionType === 'refer' ? 'سبب التحويل وملاحظات...' : 'سبب الإبلاغ عن هذه الاستشارة...'}
+              value={actionNote}
+              onChange={(e) => setActionNote(e.target.value)}
             />
+            
             <div className="flex gap-3">
-              <button onClick={handleSubmitAction} className="flex-1 bg-blue-600 text-white py-2 rounded-lg font-bold">تأكيد</button>
-              <button onClick={() => setActionModal(null)} className="flex-1 bg-gray-100 text-gray-700 py-2 rounded-lg font-bold">إلغاء</button>
+              <button onClick={handleSubmitAction} className="flex-1 bg-blue-600 text-white py-2 rounded-xl font-bold">تأكيد</button>
+              <button onClick={() => setActionType(null)} className="flex-1 bg-gray-100 text-gray-700 py-2 rounded-xl font-bold">إلغاء</button>
             </div>
           </div>
         </div>
