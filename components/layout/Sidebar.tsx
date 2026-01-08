@@ -22,13 +22,6 @@ const MENU_ITEMS = [
 
 const ADMIN_ITEMS = [
   { name: 'لوحة القيادة', href: '/admin', icon: BarChart3 },
-  { name: 'العيادات', href: '/admin/clinics', icon: Building },
-  { name: 'الأطباء والمستخدمين', href: '/admin/doctors', icon: UserPlus },
-  { name: 'الاستشارات', href: '/admin/consultations', icon: MessageSquare },
-  { name: 'الملفات الطبية', href: '/admin/medical-files', icon: FileText },
-  { name: 'المواعيد والحجوزات', href: '/admin/appointments', icon: Calendar },
-  { name: 'القوائم الطبية (Excel)', href: '/admin/medical-lists', icon: Database },
-  { name: 'إعدادات المركز', href: '/admin/settings', icon: Settings },
 ];
 
 export default function Sidebar({ userRole = 'client' }: { userRole?: string }) {
