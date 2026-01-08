@@ -8,26 +8,33 @@ import {
   Stethoscope, 
   Calendar, 
   Activity, 
-  TrendingUp, 
-  AlertCircle, 
   Building,
   Clock,
   CheckCircle,
-  XCircle,
-  ArrowLeft
+  Settings,
+  Database,
+  FileText,
+  MessageSquare,
+  ArrowLeft,
+  UserPlus,
+  BarChart3
 } from 'lucide-react';
 
 export default function AdminDashboard() {
   const supabase = createClient();
+  const [loading, setLoading] = useState(true);
+  
+  // الإحصائيات
   const [stats, setStats] = useState({
     doctors: 0,
     patients: 0,
+    clinics: 0,
     pendingConsultations: 0,
-    completedConsultations: 0,
-    totalConsultations: 0
+    todayAppointments: 0
   });
+
+  // آخر الاستشارات
   const [recentConsults, setRecentConsults] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchDashboardData();
@@ -36,178 +43,257 @@ export default function AdminDashboard() {
   const fetchDashboardData = async () => {
     setLoading(true);
 
-    // 1. جلب إحصائيات المستخدمين
-    const { count: doctorsCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'doctor');
-    const { count: patientsCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).neq('role', 'doctor').neq('role', 'admin');
-    
-    // 2. جلب إحصائيات الاستشارات
-    const { count: pendingCount } = await supabase.from('consultations').select('*', { count: 'exact', head: true }).neq('status', 'closed');
-    const { count: closedCount } = await supabase.from('consultations').select('*', { count: 'exact', head: true }).eq('status', 'closed');
+    try {
+      // 1. جلب الأعداد (Promise.all لتسريع الجلب)
+      const [
+        { count: doctors },
+        { count: patients },
+        { count: clinics }, // افترضنا وجود جدول clinics
+        { count: pending },
+        { data: recent }
+      ] = await Promise.all([
+        supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'doctor'),
+        supabase.from('profiles').select('*', { count: 'exact', head: true }).neq('role', 'doctor').neq('role', 'admin'),
+        supabase.from('clinics').select('*', { count: 'exact', head: true }), // تأكد من وجود جدول clinics
+        supabase.from('consultations').select('*', { count: 'exact', head: true }).neq('status', 'closed'),
+        (supabase.from('consultations') as any)
+          .select('*, medical_files(full_name)')
+          .order('created_at', { ascending: false })
+          .limit(5)
+      ]);
 
-    // 3. جلب آخر 5 استشارات
-    const { data: recent } = await (supabase.from('consultations') as any)
-      .select('*, medical_files(full_name), profiles(full_name)')
-      .order('created_at', { ascending: false })
-      .limit(5);
+      setStats({
+        doctors: doctors || 0,
+        patients: patients || 0,
+        clinics: clinics || 0,
+        pendingConsultations: pending || 0,
+        todayAppointments: 0 // يمكن ربطها بجدول المواعيد لاحقاً
+      });
 
-    setStats({
-      doctors: doctorsCount || 0,
-      patients: patientsCount || 0,
-      pendingConsultations: pendingCount || 0,
-      completedConsultations: closedCount || 0,
-      totalConsultations: (pendingCount || 0) + (closedCount || 0)
-    });
+      if (recent) setRecentConsults(recent);
 
-    if (recent) setRecentConsults(recent);
+    } catch (error) {
+      console.error('Error fetching admin data:', error);
+    }
+
     setLoading(false);
   };
+
+  // قائمة وحدات التحكم (بناءً على المجلدات الموجودة في الريبو)
+  const controlModules = [
+    {
+      title: 'إدارة العيادات',
+      subtitle: 'إضافة وتعديل التخصصات',
+      href: '/admin/clinics',
+      icon: Building,
+      color: 'text-blue-600',
+      bg: 'bg-blue-50',
+      border: 'hover:border-blue-300'
+    },
+    {
+      title: 'الأطباء والمستخدمين',
+      subtitle: 'الصلاحيات وإضافة أطباء',
+      href: '/admin/doctors', // يوجه لمجلد doctors
+      icon: UserPlus,
+      color: 'text-green-600',
+      bg: 'bg-green-50',
+      border: 'hover:border-green-300'
+    },
+    {
+      title: 'الاستشارات الطبية',
+      subtitle: 'متابعة الردود والحالات',
+      href: '/admin/consultations',
+      icon: MessageSquare,
+      color: 'text-purple-600',
+      bg: 'bg-purple-50',
+      border: 'hover:border-purple-300'
+    },
+    {
+      title: 'المواعيد والحجوزات',
+      subtitle: 'جدول العيادات اليومي',
+      href: '/admin/appointments',
+      icon: Calendar,
+      color: 'text-pink-600',
+      bg: 'bg-pink-50',
+      border: 'hover:border-pink-300'
+    },
+    {
+      title: 'الملفات الطبية',
+      subtitle: 'بحث بالرقم القومي',
+      href: '/admin/medical-files',
+      icon: FileText,
+      color: 'text-orange-600',
+      bg: 'bg-orange-50',
+      border: 'hover:border-orange-300'
+    },
+    {
+      title: 'القوائم الطبية',
+      subtitle: 'قواعد بيانات الأدوية',
+      href: '/admin/medical-lists',
+      icon: Database,
+      color: 'text-teal-600',
+      bg: 'bg-teal-50',
+      border: 'hover:border-teal-300'
+    },
+    {
+      title: 'الإشراف والمتابعة',
+      subtitle: 'سجل النشاط والتقارير',
+      href: '/admin/supervision', // موجود في الريبو
+      icon: BarChart3,
+      color: 'text-indigo-600',
+      bg: 'bg-indigo-50',
+      border: 'hover:border-indigo-300'
+    },
+    {
+      title: 'إعدادات المركز',
+      subtitle: 'البيانات الأساسية',
+      href: '/admin/settings',
+      icon: Settings,
+      color: 'text-slate-600',
+      bg: 'bg-slate-100',
+      border: 'hover:border-slate-300'
+    },
+  ];
 
   return (
     <div className="p-6 dir-rtl font-cairo bg-slate-50 min-h-screen">
       
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-slate-900 mb-2">لوحة التحكم المركزية 📊</h1>
-        <p className="text-slate-500">مرحباً بك، لديك <span className="text-blue-600 font-bold">{stats.pendingConsultations}</span> استشارات تحتاج لمتابعة اليوم.</p>
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900 mb-1">لوحة القيادة 🕹️</h1>
+          <p className="text-slate-500 text-sm">نظرة عامة وتحكم كامل في أقسام المركز.</p>
+        </div>
+        <div className="flex gap-3">
+          <div className="bg-white px-4 py-2 rounded-xl border text-sm font-bold text-slate-600 shadow-sm">
+             📅 {new Date().toLocaleDateString('ar-EG')}
+          </div>
+        </div>
       </div>
 
-      {/* 1. Stats Cards (الإحصائيات) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        
-        {/* Doctors Card */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
+      {/* 1. Statistics Row (شريط الإحصائيات) */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
           <div>
-            <p className="text-slate-500 text-sm font-bold mb-1">الأطباء</p>
-            <h3 className="text-3xl font-bold text-slate-800">{stats.doctors}</h3>
+            <p className="text-slate-400 text-xs font-bold mb-1">إجمالي الأطباء</p>
+            <h3 className="text-2xl font-bold text-slate-800">{stats.doctors}</h3>
           </div>
-          <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center">
-            <Stethoscope size={24} />
+          <div className="w-10 h-10 bg-green-50 text-green-600 rounded-full flex items-center justify-center">
+            <Stethoscope size={20} />
           </div>
         </div>
 
-        {/* Patients Card */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
+        <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
           <div>
-            <p className="text-slate-500 text-sm font-bold mb-1">المرضى المسجلين</p>
-            <h3 className="text-3xl font-bold text-slate-800">{stats.patients}</h3>
+            <p className="text-slate-400 text-xs font-bold mb-1">عدد العيادات</p>
+            <h3 className="text-2xl font-bold text-slate-800">{stats.clinics}</h3>
           </div>
-          <div className="w-12 h-12 bg-green-50 text-green-600 rounded-full flex items-center justify-center">
-            <Users size={24} />
+          <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center">
+            <Building size={20} />
           </div>
         </div>
 
-        {/* Pending Consultations */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between relative overflow-hidden">
-          <div className="absolute right-0 top-0 w-1 h-full bg-orange-500"></div>
+        <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
           <div>
-            <p className="text-slate-500 text-sm font-bold mb-1">استشارات نشطة</p>
-            <h3 className="text-3xl font-bold text-orange-600">{stats.pendingConsultations}</h3>
+            <p className="text-slate-400 text-xs font-bold mb-1">المرضى المسجلين</p>
+            <h3 className="text-2xl font-bold text-slate-800">{stats.patients}</h3>
           </div>
-          <div className="w-12 h-12 bg-orange-50 text-orange-600 rounded-full flex items-center justify-center">
-            <Activity size={24} />
+          <div className="w-10 h-10 bg-orange-50 text-orange-600 rounded-full flex items-center justify-center">
+            <Users size={20} />
           </div>
         </div>
 
-        {/* Total Appointments (Mock for now) */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
+        <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between relative overflow-hidden">
+           <div className="absolute top-0 right-0 w-1 h-full bg-red-500"></div>
           <div>
-            <p className="text-slate-500 text-sm font-bold mb-1">حجوزات العيادات</p>
-            <h3 className="text-3xl font-bold text-purple-600">--</h3>
-            <p className="text-xs text-gray-400">قريباً</p>
+            <p className="text-slate-400 text-xs font-bold mb-1">استشارات نشطة</p>
+            <h3 className="text-2xl font-bold text-red-600">{stats.pendingConsultations}</h3>
           </div>
-          <div className="w-12 h-12 bg-purple-50 text-purple-600 rounded-full flex items-center justify-center">
-            <Calendar size={24} />
+          <div className="w-10 h-10 bg-red-50 text-red-600 rounded-full flex items-center justify-center">
+            <Activity size={20} />
           </div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
-        {/* 2. Recent Consultations Table (الاستشارات الأخيرة) */}
-        <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-          <div className="p-6 border-b flex justify-between items-center bg-slate-50/50">
-            <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
-              <Clock className="text-blue-500" size={20}/> آخر الاستشارات الواردة
-            </h3>
-            <Link href="/doctor/dashboard" className="text-sm text-blue-600 hover:underline">عرض الكل</Link>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-right">
-              <thead className="bg-slate-50 text-slate-500 text-xs">
-                <tr>
-                  <th className="p-4">المريض</th>
-                  <th className="p-4">الشكوى</th>
-                  <th className="p-4">الحالة</th>
-                  <th className="p-4">التوقيت</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y text-sm">
-                {recentConsults.length === 0 ? (
-                  <tr><td colSpan={4} className="p-6 text-center text-gray-400">لا توجد استشارات حديثة</td></tr>
-                ) : (
-                  recentConsults.map((consult) => (
-                    <tr key={consult.id} className="hover:bg-slate-50">
-                      <td className="p-4 font-bold text-slate-700">{consult.medical_files?.full_name}</td>
-                      <td className="p-4 text-slate-600 truncate max-w-[150px]">{consult.content}</td>
-                      <td className="p-4">
-                        {consult.status === 'closed' ? 
-                          <span className="inline-flex items-center gap-1 bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-bold"><CheckCircle size={10}/> تم الرد</span> : 
-                          <span className="inline-flex items-center gap-1 bg-orange-100 text-orange-700 px-2 py-1 rounded-full text-xs font-bold"><Clock size={10}/> قيد الانتظار</span>
-                        }
-                      </td>
-                      <td className="p-4 text-slate-400">{new Date(consult.created_at).toLocaleDateString('ar-EG')}</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+        {/* 2. Control Grid (شبكة التحكم الرئيسية) */}
+        <div className="lg:col-span-2">
+           <h3 className="font-bold text-lg text-slate-800 mb-4 flex items-center gap-2">
+             <Settings size={20} className="text-slate-400"/> أقسام الإدارة
+           </h3>
+           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+             {controlModules.map((mod, idx) => {
+               const Icon = mod.icon;
+               return (
+                 <Link key={idx} href={mod.href} className="group">
+                   <div className={`bg-white p-5 rounded-2xl shadow-sm border border-slate-200 transition-all h-full ${mod.border} hover:shadow-md flex items-center gap-4`}>
+                     <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${mod.bg} ${mod.color}`}>
+                       <Icon size={24} />
+                     </div>
+                     <div className="flex-1">
+                       <h4 className="font-bold text-slate-800 group-hover:text-blue-600 transition">{mod.title}</h4>
+                       <p className="text-xs text-slate-400">{mod.subtitle}</p>
+                     </div>
+                     <ArrowLeft size={16} className="text-slate-300 group-hover:text-blue-500 group-hover:-translate-x-1 transition" />
+                   </div>
+                 </Link>
+               );
+             })}
+           </div>
         </div>
 
-        {/* 3. Quick Actions & Management Links (إدارة النظام) */}
-        <div className="space-y-6">
+        {/* 3. Recent Activity (النشاط الأخير) */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 flex flex-col h-full">
+          <div className="p-5 border-b flex justify-between items-center bg-slate-50/50 rounded-t-2xl">
+            <h3 className="font-bold text-slate-800 flex items-center gap-2">
+              <Clock className="text-blue-500" size={18}/> آخر الاستشارات
+            </h3>
+            <Link href="/admin/consultations" className="text-xs text-blue-600 hover:underline">عرض الكل</Link>
+          </div>
           
-          {/* Management Menu */}
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-            <h3 className="font-bold text-lg text-slate-800 mb-4 border-b pb-2">⚙️ إدارة النظام</h3>
-            <div className="space-y-3">
-              <Link href="/admin/users" className="flex items-center justify-between p-3 rounded-xl bg-slate-50 hover:bg-blue-50 hover:text-blue-600 transition group">
-                <span className="flex items-center gap-3 font-bold">
-                  <div className="bg-white p-2 rounded-lg shadow-sm"><Users size={18}/></div>
-                  إدارة الأطباء والمستخدمين
-                </span>
-                <ArrowLeft size={16} className="opacity-0 group-hover:opacity-100 transition-opacity" />
-              </Link>
-
-              <Link href="/admin/medical-lists" className="flex items-center justify-between p-3 rounded-xl bg-slate-50 hover:bg-green-50 hover:text-green-600 transition group">
-                <span className="flex items-center gap-3 font-bold">
-                  <div className="bg-white p-2 rounded-lg shadow-sm"><Activity size={18}/></div>
-                  قوائم الأدوية والتحاليل
-                </span>
-                <ArrowLeft size={16} className="opacity-0 group-hover:opacity-100 transition-opacity" />
-              </Link>
-            </div>
+          <div className="flex-1 overflow-y-auto max-h-[400px] p-2">
+            {loading ? (
+              <div className="text-center p-4 text-gray-400 text-sm">جاري التحميل...</div>
+            ) : recentConsults.length === 0 ? (
+              <div className="text-center p-8 text-gray-400">
+                <MessageSquare size={30} className="mx-auto mb-2 opacity-20"/>
+                <p className="text-sm">لا توجد استشارات حديثة</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {recentConsults.map((item) => (
+                  <Link href={`/admin/review/${item.id}`} key={item.id}>
+                    <div className="p-3 hover:bg-slate-50 rounded-xl transition border border-transparent hover:border-slate-100 group">
+                      <div className="flex justify-between items-start mb-1">
+                        <span className="font-bold text-sm text-slate-700">{item.medical_files?.full_name || 'مجهول'}</span>
+                        <span className="text-[10px] text-slate-400">{new Date(item.created_at).toLocaleDateString('ar-EG')}</span>
+                      </div>
+                      <p className="text-xs text-slate-500 line-clamp-1 mb-2">{item.content}</p>
+                      <div className="flex items-center gap-2">
+                        {item.status === 'closed' ? (
+                          <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1">
+                            <CheckCircle size={10}/> تم الرد
+                          </span>
+                        ) : (
+                          <span className="bg-orange-100 text-orange-700 px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1">
+                            <Clock size={10}/> انتظار
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
           </div>
-
-          {/* Clinics & Appointments (Future Features UI) */}
-          <div className="bg-gradient-to-br from-blue-900 to-slate-900 rounded-2xl shadow-lg p-6 text-white">
-            <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
-              <Building size={20} className="text-blue-300"/> العيادات والمواعيد
-            </h3>
-            <p className="text-blue-100 text-sm mb-6">
-              التحكم في مواعيد العيادات، إضافة عيادات جديدة، وجدولة مناوبات الأطباء.
-            </p>
-            <div className="grid grid-cols-2 gap-3">
-              <button className="bg-white/10 hover:bg-white/20 p-3 rounded-xl text-xs font-bold backdrop-blur-sm border border-white/10 transition">
-                + إضافة عيادة
-              </button>
-              <button className="bg-white/10 hover:bg-white/20 p-3 rounded-xl text-xs font-bold backdrop-blur-sm border border-white/10 transition">
-                📅 جدول المناوبات
-              </button>
-            </div>
+          <div className="p-4 border-t bg-slate-50 rounded-b-2xl">
+            <Link href="/admin/consultations" className="block w-full text-center bg-white border border-slate-200 text-slate-600 py-2 rounded-lg text-sm font-bold hover:bg-slate-50">
+              إدارة جميع الاستشارات
+            </Link>
           </div>
-
         </div>
+
       </div>
     </div>
   );
