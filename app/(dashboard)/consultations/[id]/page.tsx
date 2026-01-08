@@ -32,7 +32,8 @@ interface ReplyData {
 export default function ConsultationDetail() {
   const supabase = createClient();
   const params = useParams();
-  const id = params.id as string;
+  // 🔴 التصحيح هنا: إجبار id ليكون string
+  const id = params?.id as string;
   
   const [data, setData] = useState<any>(null);
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -45,13 +46,11 @@ export default function ConsultationDetail() {
       const { data: { user } } = await supabase.auth.getUser();
       setCurrentUser(user);
 
-      // 1. جلب بيانات المركز (للترويسة)
-      // نستخدم (as any) هنا أيضاً احتياطاً
+      // 1. جلب بيانات المركز
       const { data: settings } = await (supabase.from('center_settings') as any).select('*').single();
       setCenterSettings(settings);
 
-      // 2. جلب الاستشارة مع البيانات المرتبطة
-      // 🔴 التصحيح: استخدام (as any) لتجاوز خطأ 'never' عند استخدام joins معقدة
+      // 2. جلب الاستشارة
       const { data: consultation } = await (supabase
         .from('consultations') as any)
         .select('*, medical_files(*), doctors(*, profiles(full_name))')
@@ -60,10 +59,9 @@ export default function ConsultationDetail() {
         
       setData(consultation);
 
-      // 3. تحليل الرد إذا كانت الاستشارة مغلقة
+      // 3. تحليل الرد
       if (consultation?.doctor_reply && consultation.status === 'closed') {
         try {
-          // محاولة فك التشفير إذا كان نص JSON
           const parsed = typeof consultation.doctor_reply === 'string' 
             ? JSON.parse(consultation.doctor_reply) 
             : consultation.doctor_reply;
@@ -106,7 +104,7 @@ export default function ConsultationDetail() {
   return (
     <div className="p-4 max-w-4xl mx-auto dir-rtl pb-20 font-cairo">
       
-      {/* --- 1. رأس الصفحة والحالة (يختفي عند الطباعة) --- */}
+      {/* Header */}
       <div className="flex justify-between items-center mb-6 print:hidden">
         <h1 className="text-2xl font-bold text-slate-800">تفاصيل الاستشارة</h1>
         <span className={`px-4 py-1.5 rounded-full text-sm font-bold flex items-center gap-2 ${
@@ -118,7 +116,7 @@ export default function ConsultationDetail() {
         </span>
       </div>
 
-      {/* --- 2. كارت الرد النهائي (يظهر للمريض في الواجهة) --- */}
+      {/* Report Card */}
       {data.status === 'closed' && report && (
         <div className="bg-white rounded-2xl shadow-lg border border-green-100 overflow-hidden mb-8 print:hidden animate-in slide-in-from-top-4">
           <div className="bg-green-50 p-4 border-b border-green-100 flex justify-between items-center">
@@ -136,13 +134,11 @@ export default function ConsultationDetail() {
           </div>
           
           <div className="p-6 space-y-6">
-            {/* التشخيص */}
             <div>
               <p className="text-sm text-gray-500 font-bold mb-1">التشخيص:</p>
               <p className="text-lg text-slate-800 bg-slate-50 p-3 rounded-xl border border-slate-100">{report.diagnosis}</p>
             </div>
 
-            {/* الأدوية */}
             {report.medications?.length > 0 && (
               <div>
                 <p className="text-sm text-gray-500 font-bold mb-2 flex items-center gap-1"><Pill size={16}/> الأدوية الموصوفة:</p>
@@ -160,7 +156,6 @@ export default function ConsultationDetail() {
               </div>
             )}
 
-            {/* التعليمات */}
             {report.advice && (
               <div className="bg-orange-50 p-4 rounded-xl border border-orange-100">
                 <p className="text-orange-800 font-bold text-sm mb-1">تعليمات الطبيب:</p>
@@ -178,11 +173,10 @@ export default function ConsultationDetail() {
         </div>
       )}
 
-      {/* --- 3. تصميم الروشتة A4 (يظهر عند الطباعة أو الضغط على الزر) --- */}
+      {/* A4 Prescription View */}
       {(showPrescription || (typeof window !== 'undefined' && window.matchMedia('print').matches)) && report && (
         <div className={`bg-white p-8 mb-8 border shadow-2xl mx-auto print:shadow-none print:border-none print:w-full print:absolute print:top-0 print:left-0 print:z-50 ${showPrescription ? 'block' : 'hidden print:block'}`} style={{ maxWidth: '210mm', minHeight: '297mm' }}>
           
-          {/* Header */}
           <div className="flex justify-between items-start border-b-4 border-blue-600 pb-6 mb-8">
             <div>
               <h1 className="text-3xl font-bold text-blue-800 mb-2">{centerSettings?.center_name || 'مركز صحتي الطبي'}</h1>
@@ -195,14 +189,12 @@ export default function ConsultationDetail() {
             </div>
           </div>
 
-          {/* Patient Info */}
           <div className="flex justify-between bg-gray-50 p-4 rounded-xl border border-gray-200 mb-8 text-sm">
             <div><span className="font-bold">المريض:</span> {data.medical_files.full_name}</div>
             <div><span className="font-bold">التاريخ:</span> {new Date(data.updated_at).toLocaleDateString('ar-EG')}</div>
             <div><span className="font-bold">رقم الملف:</span> #{data.medical_files.id.slice(0, 6)}</div>
           </div>
 
-          {/* Rx Content */}
           <div className="space-y-8">
             <div>
               <h3 className="text-4xl font-serif font-bold text-blue-600 italic mb-4">Rx</h3>
@@ -230,7 +222,6 @@ export default function ConsultationDetail() {
             )}
           </div>
 
-          {/* Footer */}
           <div className="mt-20 pt-8 border-t flex justify-between items-end text-sm text-gray-500">
             <div>
               <p>المتابعة: {report.followUp || 'عند اللزوم'}</p>
@@ -244,22 +235,25 @@ export default function ConsultationDetail() {
         </div>
       )}
 
-      {/* --- 4. تفاصيل الشكوى (للتذكير) --- */}
+      {/* Complaint Details */}
       <div className="bg-white p-6 rounded-2xl shadow-sm mb-6 border border-slate-100 print:hidden">
         <p className="text-gray-500 text-xs font-bold mb-2 uppercase tracking-wide">الشكوى الأصلية</p>
         <p className="text-gray-800 leading-relaxed">{data.content}</p>
       </div>
 
-      {/* --- 5. منطقة الدردشة (تظهر دائماً للتاريخ) --- */}
+      {/* Chat Area */}
       <div className="print:hidden">
         <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-slate-800">
           <Activity className="text-blue-600"/> سجل المحادثة
         </h2>
-        {/* نمرر isReadOnly إذا كانت الحالة مغلقة لمنع الكتابة، أو نتركها مفتوحة للمتابعة حسب رغبتك */}
-        <ChatArea consultationId={id} currentUserId={currentUser.id} />
+        
+        {/* ✅ تم تمرير id بعد تحويله إلى string بشكل صريح */}
+        <ChatArea 
+          consultationId={id} 
+          currentUserId={currentUser.id} 
+        />
       </div>
 
-      {/* CSS للطباعة */}
       <style jsx global>{`
         @media print {
           body * { visibility: hidden; }
