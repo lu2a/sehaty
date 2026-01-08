@@ -9,28 +9,34 @@ import {
   LayoutDashboard, FileText, Calculator, Users, Stethoscope, 
   Menu, X, LogOut, Settings, Database, ShieldCheck, 
   BarChart3, Calendar, Building, MessageSquare, UserPlus,
-  ClipboardList, History
+  ClipboardList, Activity
 } from 'lucide-react';
 
-// قوائم المريض (Client)
+// قوائم المريض (أساسية للجميع)
 const MENU_ITEMS = [
   { name: 'الرئيسية', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'استشاراتي', href: '/consultations', icon: Stethoscope },
+  { name: 'استشاراتي', href: '/consultations', icon: Stethoscope }, // الطبيب أيضاً قد يحتاج استشارة كـ مريض
   { name: 'السجلات الطبية', href: '/records', icon: FileText },
   { name: 'الحاسبات', href: '/calculators', icon: Calculator },
   { name: 'العائلة', href: '/family', icon: Users },
   { name: 'الملف الطبي', href: '/medical-file', icon: Settings },
 ];
 
-// قوائم الطبيب (Doctor) - جديد ✅
+// قوائم الطبيب (إضافية)
 const DOCTOR_ITEMS = [
-  { name: 'عيادتي (لوحة التحكم)', href: '/doctor/dashboard', icon: Stethoscope },
-  { name: 'جميع الاستشارات', href: '/doctor/consultations', icon: ClipboardList }, // لاستعراض الكل
+  { name: 'عيادتي (لوحة التحكم)', href: '/doctor/dashboard', icon: Activity },
 ];
 
-// قوائم المدير (Admin)
+// قوائم المدير
 const ADMIN_ITEMS = [
   { name: 'لوحة القيادة', href: '/admin', icon: BarChart3 },
+  { name: 'العيادات', href: '/admin/clinics', icon: Building },
+  { name: 'الأطباء والمستخدمين', href: '/admin/doctors', icon: UserPlus },
+  { name: 'الاستشارات', href: '/admin/consultations', icon: MessageSquare },
+  { name: 'الملفات الطبية', href: '/admin/medical-files', icon: FileText },
+  { name: 'المواعيد', href: '/admin/appointments', icon: Calendar },
+  { name: 'القوائم الطبية', href: '/admin/medical-lists', icon: Database },
+  { name: 'إعدادات المركز', href: '/admin/settings', icon: Settings },
 ];
 
 export default function Sidebar({ userRole = 'client' }: { userRole?: string }) {
@@ -47,11 +53,14 @@ export default function Sidebar({ userRole = 'client' }: { userRole?: string }) 
   const toggleMenu = () => setIsOpen(!isOpen);
   const closeMenu = () => setIsOpen(false);
 
-  // دالة مساعدة لتحديد القوائم بناءً على الدور
+  // منطق دمج القوائم
   const getNavItems = () => {
     if (userRole === 'admin') return ADMIN_ITEMS;
-    if (userRole === 'doctor') return DOCTOR_ITEMS;
-    return MENU_ITEMS; // الافتراضي للمريض
+    if (userRole === 'doctor') {
+      // الطبيب يرى قوائم المريض + قوائمه الخاصة في الأعلى
+      return [...DOCTOR_ITEMS, ...MENU_ITEMS];
+    }
+    return MENU_ITEMS;
   };
 
   const currentItems = getNavItems();
@@ -76,8 +85,23 @@ export default function Sidebar({ userRole = 'client' }: { userRole?: string }) 
           {currentItems.map((item) => {
             const Icon = item.icon;
             const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(`${item.href}/`));
+            
+            // تمييز رابط "عيادتي" بلون مختلف
+            const isDoctorLink = item.href === '/doctor/dashboard';
+            
             return (
-              <Link key={item.href} href={item.href} onClick={closeMenu} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-medium ${isActive ? 'bg-blue-50 text-blue-600 shadow-sm' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}>
+              <Link 
+                key={item.href} 
+                href={item.href} 
+                onClick={closeMenu} 
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-medium ${
+                  isActive 
+                  ? 'bg-blue-50 text-blue-600 shadow-sm' 
+                  : isDoctorLink 
+                    ? 'bg-purple-50 text-purple-700 hover:bg-purple-100 font-bold border border-purple-100' 
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                }`}
+              >
                 <Icon size={20} />
                 <span>{item.name}</span>
               </Link>
