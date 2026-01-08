@@ -5,11 +5,13 @@ import { createClient } from '@/lib/supabase';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { 
-  User, Clock, AlertTriangle, FileText, CheckCircle, 
+  User, AlertTriangle, CheckCircle, 
   Printer, ArrowRight, Stethoscope, Pill, FlaskConical, MessageCircle,
-  Share2, ChevronLeft, ChevronRight, Play, AlertOctagon, CornerUpLeft, XCircle
+  Share2, ChevronLeft, ChevronRight, Play, AlertOctagon, CornerUpLeft, XCircle, Ban
 } from 'lucide-react';
 import SearchableSelect from '@/components/ui/SearchableSelect';
+// ✅ استيراد مكون المحادثة
+import ChatArea from '@/components/consultation/ChatArea';
 
 // --- Types ---
 interface Medication {
@@ -248,37 +250,41 @@ export default function DoctorConsultationPage() {
     init();
   }, [id]);
 
-  // --- Actions with Error Handling and Type Fixes ---
+  // --- Actions ---
 
   const handleStart = async () => {
     if (!currentUser) return;
-    
-    // ✅ تصحيح: استخدام (as any) على الكائن المسترجع من from لتجاوز أخطاء TypeScript
     const { error } = await (supabase.from('consultations') as any)
       .update({ status: 'active', doctor_id: currentUser.id })
       .eq('id', id);
 
     if (error) {
       alert('حدث خطأ أثناء استلام الحالة: ' + error.message);
-      console.error(error);
       return;
     }
-
     setView('wizard');
   };
 
   const handleSkip = async () => {
     if (!confirm('هل أنت متأكد من تخطي هذه الحالة؟')) return;
-    
     const { error } = await (supabase.from('consultations') as any)
       .update({ status: 'pending', doctor_id: null })
       .eq('id', id);
 
-    if (error) {
-      alert('حدث خطأ: ' + error.message);
-      return;
-    }
+    if (error) { alert('حدث خطأ: ' + error.message); return; }
+    router.push('/doctor/dashboard');
+  };
 
+  // ✅ دالة إنهاء المحادثة (بدون روشتة)
+  const handleCloseChat = async () => {
+    if (!confirm('هل أنت متأكد من إنهاء المحادثة وإغلاق الاستشارة تماماً؟')) return;
+    
+    const { error } = await (supabase.from('consultations') as any)
+      .update({ status: 'closed', updated_at: new Date().toISOString() })
+      .eq('id', id);
+
+    if (error) { alert('حدث خطأ: ' + error.message); return; }
+    alert('تم إنهاء المحادثة بنجاح.');
     router.push('/doctor/dashboard');
   };
 
@@ -286,18 +292,13 @@ export default function DoctorConsultationPage() {
     const note = actionType === 'refer' 
       ? `تم التحويل إلى: ${targetSpecialty}. ملاحظات: ${actionNote}` 
       : `سبب الإبلاغ: ${actionNote}`;
-
     const newStatus = actionType === 'refer' ? 'referred' : 'reported';
 
     const { error } = await (supabase.from('consultations') as any)
       .update({ status: newStatus, doctor_reply: note })
       .eq('id', id);
 
-    if (error) {
-      alert('حدث خطأ: ' + error.message);
-      return;
-    }
-      
+    if (error) { alert('حدث خطأ: ' + error.message); return; }
     alert('تم تنفيذ الإجراء بنجاح');
     router.push('/doctor/dashboard');
   };
@@ -310,12 +311,7 @@ export default function DoctorConsultationPage() {
       updated_at: new Date().toISOString()
     }).eq('id', id);
 
-    if (error) {
-      alert('فشل حفظ الرد! تأكد من صلاحياتك: ' + error.message);
-      console.error(error);
-      return;
-    }
-    
+    if (error) { alert('فشل حفظ الرد: ' + error.message); return; }
     setView('prescription');
   };
 
@@ -337,7 +333,7 @@ export default function DoctorConsultationPage() {
           patientName: consultation.medical_files?.full_name,
           patientId: consultation.medical_files?.id,
           patientAge: consultation.medical_files?.birth_date ? new Date().getFullYear() - new Date(consultation.medical_files.birth_date).getFullYear() : '--',
-          doctorName: 'اسم الطبيب',
+          doctorName: 'اسم الطبيب', // يمكن جلبه من البروفايل
           specialty: 'باطنة عامة'
         }}
         centerSettings={centerSettings}
@@ -347,10 +343,10 @@ export default function DoctorConsultationPage() {
     );
   }
 
-  // View: Wizard
   if (view === 'wizard') {
     return (
       <div className="max-w-5xl mx-auto p-4 md:p-8 dir-rtl font-cairo bg-slate-50 min-h-screen">
+        {/* Progress */}
         <div className="bg-white p-4 rounded-2xl shadow-sm mb-6">
           <div className="flex justify-between text-xs font-bold text-gray-500 mb-2 px-2">
             <span className={step >= 1 ? 'text-blue-600' : ''}>1. التشخيص</span>
@@ -568,7 +564,9 @@ export default function DoctorConsultationPage() {
           <div className="absolute top-0 right-0 w-1 h-full bg-blue-500"></div>
           <div className="flex justify-between items-start mb-4">
             <h1 className="text-2xl font-bold text-gray-800">استشارة #{consultation.id.slice(0,6)}</h1>
-            <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm font-bold">
+            <span className={`px-3 py-1 rounded-full text-sm font-bold ${
+              consultation.status === 'closed' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'
+            }`}>
               {new Date(consultation.created_at).toLocaleDateString('ar-EG')}
             </span>
           </div>
@@ -577,8 +575,14 @@ export default function DoctorConsultationPage() {
           </p>
           <div className="flex flex-wrap gap-3">
             <button onClick={handleStart} className="flex-1 bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-200 flex items-center justify-center gap-2">
-              <Play size={20} fill="currentColor" /> استلام والرد
+              <Play size={20} fill="currentColor" /> استلام والرد (روشتة)
             </button>
+            
+            {/* زر إنهاء المحادثة الجديد */}
+            <button onClick={handleCloseChat} className="px-6 py-3 border border-red-300 rounded-xl font-bold text-red-700 hover:bg-red-50 flex items-center gap-2">
+              <Ban size={18} /> إنهاء المحادثة
+            </button>
+
             <button onClick={() => setActionType('refer')} className="px-6 py-3 border border-gray-300 rounded-xl font-bold text-gray-700 hover:bg-gray-50 flex items-center gap-2">
               <CornerUpLeft size={18} /> تحويل
             </button>
@@ -612,6 +616,21 @@ export default function DoctorConsultationPage() {
           >
             عرض الملف الطبي الكامل ↗
           </Link>
+        </div>
+
+        {/* ✅ مكان المحادثة الجديد في القائمة اليسرى */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+          <div className="bg-gray-50 p-4 border-b font-bold flex items-center gap-2 text-slate-800">
+            <MessageCircle size={20} className="text-blue-600" />
+            المحادثة المباشرة
+          </div>
+          <div className="h-[400px]">
+            {/* نمرر isReadOnly إذا كانت الاستشارة مغلقة لمنع الكتابة */}
+            <ChatArea 
+              consultationId={id} 
+              currentUserId={currentUser?.id} 
+            />
+          </div>
         </div>
       </div>
 
