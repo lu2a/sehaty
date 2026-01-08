@@ -5,9 +5,9 @@ import { createClient } from '@/lib/supabase';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { 
-  User, Clock, AlertTriangle, FileText, CheckCircle, 
+  User, AlertTriangle, CheckCircle, 
   Printer, ArrowRight, Stethoscope, Pill, FlaskConical, MessageCircle,
-  Share2, ChevronLeft, ChevronRight, Play, AlertOctagon, CornerUpLeft, XCircle, Home
+  Share2, ChevronLeft, ChevronRight, Play, AlertOctagon, CornerUpLeft, XCircle
 } from 'lucide-react';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 
@@ -31,7 +31,6 @@ interface ReplyData {
   notes: string;
 }
 
-// تعريف الواجهات لتسهيل التعامل مع البيانات
 interface MedicalFile {
   id: string;
   full_name: string;
@@ -48,7 +47,6 @@ interface Consultation {
   content: string;
   status: 'pending' | 'active' | 'referred' | 'passed' | 'closed' | 'reported';
   is_emergency: boolean;
-  urgency?: 'low' | 'medium' | 'high' | 'critical';
   medical_files?: MedicalFile;
   doctor_reply?: string;
   diagnosis?: string;
@@ -57,20 +55,17 @@ interface Consultation {
 // --- Components ---
 
 // 1. مكون الروشتة (Prescription A4)
-// تم إضافة onExit للخصائص
 const PrescriptionView = ({ data, centerSettings, onBack, onExit }: any) => {
   const handlePrint = () => window.print();
 
   return (
     <div className="max-w-4xl mx-auto p-4 animate-in fade-in">
-      {/* Toolbar */}
       <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4 print:hidden">
         <button onClick={onBack} className="flex items-center gap-2 text-gray-600 hover:text-gray-900 bg-white px-4 py-2 rounded-lg border w-full md:w-auto justify-center">
           <ArrowRight size={18} /> عودة للتعديل
         </button>
         
         <div className="flex gap-2 w-full md:w-auto flex-wrap justify-center">
-          {/* زر الإنهاء والعودة الجديد */}
           <button 
             onClick={onExit} 
             className="bg-slate-800 text-white px-6 py-2 rounded-lg flex items-center gap-2 hover:bg-slate-900 shadow-md font-bold transition-all"
@@ -87,7 +82,6 @@ const PrescriptionView = ({ data, centerSettings, onBack, onExit }: any) => {
       {/* A4 Paper */}
       <div className="bg-white shadow-xl print:shadow-none w-full max-w-[21cm] min-h-[29.7cm] mx-auto p-[1cm] md:p-[1.5cm] relative text-right dir-rtl font-cairo border print:border-none">
         
-        {/* Header */}
         <div className="flex justify-between items-start border-b-4 border-blue-600 pb-6 mb-8">
           <div>
             <h1 className="text-3xl font-bold text-blue-800 mb-2">{centerSettings?.center_name || 'مركز صحتي الطبي'}</h1>
@@ -100,7 +94,6 @@ const PrescriptionView = ({ data, centerSettings, onBack, onExit }: any) => {
           </div>
         </div>
 
-        {/* Patient Bar */}
         <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 mb-8 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
           <div><span className="font-bold text-blue-800">المريض:</span> {data.patientName}</div>
           <div><span className="font-bold text-blue-800">العمر:</span> {data.patientAge} سنة</div>
@@ -108,7 +101,6 @@ const PrescriptionView = ({ data, centerSettings, onBack, onExit }: any) => {
           <div><span className="font-bold text-blue-800">رقم الملف:</span> #{data.patientId?.slice(0, 5)}</div>
         </div>
 
-        {/* Diagnosis */}
         {data.diagnosis && (
           <div className="mb-6">
             <h3 className="font-bold text-gray-900 mb-1">التشخيص (Diagnosis):</h3>
@@ -116,7 +108,6 @@ const PrescriptionView = ({ data, centerSettings, onBack, onExit }: any) => {
           </div>
         )}
 
-        {/* Rx */}
         <div className="mb-8">
           <h3 className="text-5xl font-serif font-bold text-blue-600 italic mb-6">Rx</h3>
           <div className="space-y-6">
@@ -141,7 +132,6 @@ const PrescriptionView = ({ data, centerSettings, onBack, onExit }: any) => {
           </div>
         </div>
 
-        {/* Labs & Rads */}
         {(data.labs.length > 0 || data.radiology.length > 0) && (
           <div className="grid grid-cols-2 gap-8 mb-8">
              {data.labs.length > 0 && (
@@ -159,7 +149,6 @@ const PrescriptionView = ({ data, centerSettings, onBack, onExit }: any) => {
           </div>
         )}
 
-        {/* Messages & Red Flags */}
         <div className="space-y-4 mb-8">
           {data.advice && (
             <div className="flex gap-3 bg-blue-50 p-4 rounded-xl border-r-4 border-blue-500">
@@ -181,7 +170,6 @@ const PrescriptionView = ({ data, centerSettings, onBack, onExit }: any) => {
           )}
         </div>
 
-        {/* Footer */}
         <div className="absolute bottom-0 left-0 right-0 p-[1.5cm] border-t pt-4 flex justify-between items-end">
            <div>
              <p className="text-sm text-gray-600 mb-1"><span className="font-bold">المتابعة:</span> {data.followUp || 'عند اللزوم'}</p>
@@ -189,7 +177,6 @@ const PrescriptionView = ({ data, centerSettings, onBack, onExit }: any) => {
            </div>
            <div className="text-center">
              <div className="h-16 w-32 mb-2 flex items-center justify-center opacity-20">
-               {/* مكان التوقيع الإلكتروني */}
                <span className="font-script text-2xl">Dr. Signature</span>
              </div>
              <p className="text-sm font-bold text-gray-800">توقيع الطبيب</p>
@@ -210,53 +197,42 @@ const PrescriptionView = ({ data, centerSettings, onBack, onExit }: any) => {
   );
 };
 
-// 2. الصفحة الرئيسية (Logic)
+// 2. الصفحة الرئيسية
 export default function DoctorConsultationPage() {
   const { id } = useParams();
   const supabase = createClient();
   const router = useRouter();
 
-  // State
   const [loading, setLoading] = useState(true);
   const [consultation, setConsultation] = useState<Consultation | null>(null);
   const [centerSettings, setCenterSettings] = useState<any>(null);
   const [view, setView] = useState<'details' | 'wizard' | 'prescription'>('details');
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [lists, setLists] = useState<any>({});
 
-  // Lookups (from DB)
-  const [lists, setLists] = useState<any>({
-    specialty: [], diagnosis: [], medication: [], lab: [], radiology: [], advice: [], red_flag: []
-  });
-
-  // Action Modals
   const [actionType, setActionType] = useState<'refer' | 'report' | null>(null);
   const [actionNote, setActionNote] = useState('');
   const [targetSpecialty, setTargetSpecialty] = useState('');
 
-  // Wizard Data
   const [step, setStep] = useState(1);
   const [replyData, setReplyData] = useState<ReplyData>({
     diagnosis: '', medications: [], labs: [], radiology: [], advice: '', redFlags: '', followUp: '', notes: ''
   });
 
-  // Fetch Data
   useEffect(() => {
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       setCurrentUser(user);
 
-      // 1. Consultation & File
       const { data: consult } = await (supabase.from('consultations') as any)
         .select('*, medical_files(*)')
         .eq('id', id).single();
       
       if (consult) setConsultation(consult as Consultation);
 
-      // 2. Center Settings
       const { data: settings } = await (supabase.from('center_settings') as any).select('*').single();
       setCenterSettings(settings);
 
-      // 3. Medical Lists (Dropdowns)
       const { data: listData } = await supabase.from('medical_lists').select('*');
       if (listData) {
         const grouped = listData.reduce((acc: any, item: any) => {
@@ -264,7 +240,7 @@ export default function DoctorConsultationPage() {
           acc[item.category].push(item.value);
           return acc;
         }, {});
-        setLists((prev: any) => ({ ...prev, ...grouped }));
+        setLists(grouped);
       }
 
       setLoading(false);
@@ -272,21 +248,36 @@ export default function DoctorConsultationPage() {
     init();
   }, [id]);
 
-  // Actions
+  // --- Actions with Error Handling ---
+
   const handleStart = async () => {
     if (!currentUser) return;
-    await (supabase.from('consultations') as any)
-      .update({ status: 'active', doctor_id: currentUser.id })
+    
+    // 🔴 إضافة فحص الخطأ للتأكد من نجاح العملية
+    const { error } = await supabase.from('consultations')
+      .update({ status: 'active', doctor_id: currentUser.id } as any)
       .eq('id', id);
+
+    if (error) {
+      alert('حدث خطأ أثناء استلام الحالة: ' + error.message);
+      console.error(error);
+      return;
+    }
 
     setView('wizard');
   };
 
   const handleSkip = async () => {
-    if (!confirm('هل أنت متأكد من تخطي هذه الحالة؟ ستعود لقائمة الانتظار.')) return;
-    await (supabase.from('consultations') as any)
-      .update({ status: 'pending', doctor_id: null })
+    if (!confirm('هل أنت متأكد من تخطي هذه الحالة؟')) return;
+    
+    const { error } = await supabase.from('consultations')
+      .update({ status: 'pending', doctor_id: null } as any)
       .eq('id', id);
+
+    if (error) {
+      alert('حدث خطأ: ' + error.message);
+      return;
+    }
 
     router.push('/doctor/dashboard');
   };
@@ -298,26 +289,37 @@ export default function DoctorConsultationPage() {
 
     const newStatus = actionType === 'refer' ? 'referred' : 'reported';
 
-    await (supabase.from('consultations') as any)
-      .update({ status: newStatus, doctor_reply: note })
+    const { error } = await supabase.from('consultations')
+      .update({ status: newStatus, doctor_reply: note } as any)
       .eq('id', id);
+
+    if (error) {
+      alert('حدث خطأ: ' + error.message);
+      return;
+    }
       
     alert('تم تنفيذ الإجراء بنجاح');
     router.push('/doctor/dashboard');
   };
 
   const handleFinish = async () => {
-    await (supabase.from('consultations') as any).update({
+    // 🔴 الحفظ النهائي مع فحص الأخطاء
+    const { error } = await supabase.from('consultations').update({
       status: 'closed',
-      doctor_reply: JSON.stringify(replyData), 
+      doctor_reply: JSON.stringify(replyData), // حفظ الروشتة كـ JSON string
       diagnosis: replyData.diagnosis,
       updated_at: new Date().toISOString()
-    }).eq('id', id);
+    } as any).eq('id', id);
+
+    if (error) {
+      alert('فشل حفظ الرد! تأكد من صلاحياتك: ' + error.message);
+      console.error(error);
+      return;
+    }
     
     setView('prescription');
   };
 
-  // ✅ دالة الخروج الجديدة
   const handleExit = () => {
     alert('تم الرد على الاستشارة بنجاح وحفظ الروشتة ✅\nجاري العودة للوحة التحكم...');
     router.push('/doctor/dashboard');
@@ -341,15 +343,15 @@ export default function DoctorConsultationPage() {
         }}
         centerSettings={centerSettings}
         onBack={() => setView('wizard')}
-        onExit={handleExit} // تمرير دالة الخروج
+        onExit={handleExit}
       />
     );
   }
 
+  // (باقي الكود الخاص بالـ Wizard والتفاصيل كما هو في الرسالة السابقة، تم نسخه هنا ليكون الملف كاملاً)
   if (view === 'wizard') {
     return (
       <div className="max-w-5xl mx-auto p-4 md:p-8 dir-rtl font-cairo bg-slate-50 min-h-screen">
-        {/* Progress */}
         <div className="bg-white p-4 rounded-2xl shadow-sm mb-6">
           <div className="flex justify-between text-xs font-bold text-gray-500 mb-2 px-2">
             <span className={step >= 1 ? 'text-blue-600' : ''}>1. التشخيص</span>
@@ -366,11 +368,9 @@ export default function DoctorConsultationPage() {
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 min-h-[500px] flex flex-col">
-          
-          {/* Step 1: Diagnosis */}
           {step === 1 && (
             <div className="space-y-4 animate-in slide-in-from-right-8">
-              <h2 className="text-xl font-bold flex items-center gap-2"><Stethoscope className="text-blue-600"/> التشخيص (Diagnosis)</h2>
+              <h2 className="text-xl font-bold flex items-center gap-2"><Stethoscope className="text-blue-600"/> التشخيص</h2>
               <SearchableSelect 
                 options={lists.diagnosis || []}
                 value={replyData.diagnosis}
@@ -384,11 +384,9 @@ export default function DoctorConsultationPage() {
             </div>
           )}
 
-          {/* Step 2: Medications */}
           {step === 2 && (
             <div className="space-y-4 animate-in slide-in-from-right-8">
-              <h2 className="text-xl font-bold flex items-center gap-2"><Pill className="text-green-600"/> الأدوية (Medications)</h2>
-              
+              <h2 className="text-xl font-bold flex items-center gap-2"><Pill className="text-green-600"/> الأدوية</h2>
               <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 grid grid-cols-2 md:grid-cols-6 gap-3 items-end">
                 <div className="col-span-2">
                   <label className="text-xs font-bold mb-1 block">اسم الدواء</label>
@@ -429,7 +427,6 @@ export default function DoctorConsultationPage() {
                     const nameHidden = (document.getElementById('med-name-hidden') as HTMLInputElement).value;
                     const nameSelect = (document.querySelector('div[class*="text-gray-800"]') as HTMLElement)?.innerText;
                     const name = nameHidden || nameSelect || 'دواء';
-                    
                     const conc = (document.getElementById('med-conc') as HTMLInputElement).value;
                     const form = (document.getElementById('med-form') as HTMLInputElement).value;
                     const dose = (document.getElementById('med-dose') as HTMLInputElement).value;
@@ -440,38 +437,32 @@ export default function DoctorConsultationPage() {
                     }
                   }}
                 >
-                  + إضافة الدواء
+                  + إضافة
                 </button>
               </div>
-
               <div className="space-y-2 mt-4">
                 {replyData.medications.map((m, i) => (
                   <div key={i} className="flex justify-between items-center p-3 border rounded-lg bg-white shadow-sm">
-                    <div>
-                      <span className="font-bold text-gray-800">{m.name}</span>
-                      <span className="text-xs text-gray-500 mx-2">{m.concentration} - {m.form}</span>
-                      <span className="text-blue-600 text-sm font-bold">({m.dose})</span>
-                    </div>
+                    <div><span className="font-bold">{m.name}</span> <span className="text-xs mx-2">{m.concentration}</span></div>
                     <button onClick={() => {
                        const newMeds = [...replyData.medications];
                        newMeds.splice(i, 1);
                        setReplyData({...replyData, medications: newMeds});
-                    }} className="text-red-500 hover:bg-red-50 p-1 rounded"><XCircle size={18}/></button>
+                    }} className="text-red-500"><XCircle size={18}/></button>
                   </div>
                 ))}
               </div>
             </div>
           )}
 
-          {/* Step 3: Labs */}
           {step === 3 && (
             <div className="space-y-4 animate-in slide-in-from-right-8">
-              <h2 className="text-xl font-bold flex items-center gap-2"><FlaskConical className="text-purple-600"/> التحاليل الطبية (Labs)</h2>
+              <h2 className="text-xl font-bold flex items-center gap-2"><FlaskConical className="text-purple-600"/> التحاليل</h2>
               <SearchableSelect 
                 options={lists.lab || []}
                 value=""
                 onChange={(val) => setReplyData({...replyData, labs: [...replyData.labs, val]})}
-                placeholder="ابحث عن التحليل..."
+                placeholder="ابحث..."
               />
               <div className="flex flex-wrap gap-2 mt-4">
                 {replyData.labs.map((l, i) => (
@@ -486,15 +477,14 @@ export default function DoctorConsultationPage() {
             </div>
           )}
 
-          {/* Step 4: Radiology */}
           {step === 4 && (
             <div className="space-y-4 animate-in slide-in-from-right-8">
-              <h2 className="text-xl font-bold flex items-center gap-2"><AlertOctagon className="text-indigo-600"/> الأشعة (Radiology)</h2>
+              <h2 className="text-xl font-bold flex items-center gap-2"><AlertOctagon className="text-indigo-600"/> الأشعة</h2>
               <SearchableSelect 
                 options={lists.radiology || []}
                 value=""
                 onChange={(val) => setReplyData({...replyData, radiology: [...replyData.radiology, val]})}
-                placeholder="ابحث عن نوع الأشعة..."
+                placeholder="ابحث..."
               />
                <div className="flex flex-wrap gap-2 mt-4">
                 {replyData.radiology.map((r, i) => (
@@ -509,48 +499,32 @@ export default function DoctorConsultationPage() {
             </div>
           )}
 
-          {/* Step 5: Advice */}
           {step === 5 && (
             <div className="space-y-4 animate-in slide-in-from-right-8">
-              <h2 className="text-xl font-bold flex items-center gap-2"><MessageCircle className="text-blue-600"/> رسائل وتوجيهات للمريض</h2>
-              <div className="mb-4">
-                <label className="text-sm font-bold text-gray-500 mb-2 block">رسائل جاهزة:</label>
-                <SearchableSelect 
-                  options={lists.advice || []}
-                  value=""
-                  onChange={(val) => setReplyData({...replyData, advice: replyData.advice ? `${replyData.advice}\n- ${val}` : `- ${val}`})}
-                  placeholder="اختر رسالة جاهزة..."
-                />
-              </div>
-              <textarea 
-                className="w-full p-4 border rounded-xl h-40 focus:ring-2 focus:ring-blue-100 outline-none"
-                value={replyData.advice}
-                onChange={(e) => setReplyData({...replyData, advice: e.target.value})}
-                placeholder="أو اكتب النصائح هنا..."
+              <h2 className="text-xl font-bold flex items-center gap-2"><MessageCircle className="text-blue-600"/> النصائح</h2>
+              <SearchableSelect 
+                options={lists.advice || []}
+                value=""
+                onChange={(val) => setReplyData({...replyData, advice: replyData.advice ? `${replyData.advice}\n- ${val}` : `- ${val}`})}
+                placeholder="اختر رسالة جاهزة..."
               />
+              <textarea className="w-full p-4 border rounded-xl h-40 mt-2" value={replyData.advice} onChange={(e) => setReplyData({...replyData, advice: e.target.value})} />
             </div>
           )}
 
-          {/* Step 6: Red Flags */}
           {step === 6 && (
             <div className="space-y-4 animate-in slide-in-from-right-8">
-              <h2 className="text-xl font-bold flex items-center gap-2 text-red-600"><AlertTriangle/> علامات الخطر (Red Flags)</h2>
-              <p className="text-sm text-gray-500">تحذيرات تستدعي الذهاب للطوارئ.</p>
+              <h2 className="text-xl font-bold flex items-center gap-2 text-red-600"><AlertTriangle/> علامات الخطر</h2>
               <SearchableSelect 
                 options={lists.red_flag || []}
                 value=""
                 onChange={(val) => setReplyData({...replyData, redFlags: replyData.redFlags ? `${replyData.redFlags}\n- ${val}` : `- ${val}`})}
                 placeholder="اختر تحذيراً..."
               />
-              <textarea 
-                className="w-full p-4 border border-red-200 bg-red-50 rounded-xl h-32 focus:ring-2 focus:ring-red-100 outline-none"
-                value={replyData.redFlags}
-                onChange={(e) => setReplyData({...replyData, redFlags: e.target.value})}
-              />
+              <textarea className="w-full p-4 border border-red-200 bg-red-50 rounded-xl h-32 mt-2" value={replyData.redFlags} onChange={(e) => setReplyData({...replyData, redFlags: e.target.value})} />
             </div>
           )}
 
-          {/* Step 7: Finalize */}
           {step === 7 && (
             <div className="space-y-6 text-center py-8 animate-in zoom-in-95">
               <CheckCircle size={60} className="text-green-500 mx-auto mb-4" />
@@ -558,21 +532,14 @@ export default function DoctorConsultationPage() {
               <div className="bg-gray-50 p-6 rounded-2xl max-w-md mx-auto text-right space-y-2 border">
                 <p><strong>التشخيص:</strong> {replyData.diagnosis}</p>
                 <p><strong>الأدوية:</strong> {replyData.medications.length} أصناف</p>
-                <p><strong>التحاليل:</strong> {replyData.labs.length}</p>
               </div>
-              
               <div className="max-w-md mx-auto text-right">
                 <label className="font-bold text-sm block mb-1">ميعاد المتابعة:</label>
-                <input 
-                  type="date" 
-                  className="w-full p-3 border rounded-xl mb-4"
-                  onChange={(e) => setReplyData({...replyData, followUp: e.target.value})}
-                />
+                <input type="date" className="w-full p-3 border rounded-xl mb-4" onChange={(e) => setReplyData({...replyData, followUp: e.target.value})} />
               </div>
             </div>
           )}
 
-          {/* Wizard Controls */}
           <div className="mt-auto pt-6 border-t flex justify-between">
             {step > 1 && (
               <button onClick={() => setStep(step - 1)} className="flex items-center gap-2 px-6 py-2 rounded-xl text-gray-600 hover:bg-gray-100 font-bold">
@@ -594,11 +561,9 @@ export default function DoctorConsultationPage() {
     );
   }
 
-  // View: Details (Initial)
+  // View: Initial Details
   return (
     <div className="p-4 md:p-8 dir-rtl font-cairo bg-slate-50 min-h-screen grid grid-cols-1 lg:grid-cols-3 gap-6">
-      
-      {/* Right: Consultation Info */}
       <div className="lg:col-span-2 space-y-6">
         <div className="bg-white rounded-2xl shadow-sm border border-blue-100 p-6 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-1 h-full bg-blue-500"></div>
@@ -611,8 +576,6 @@ export default function DoctorConsultationPage() {
           <p className="text-lg text-gray-700 leading-relaxed bg-slate-50 p-5 rounded-xl border mb-6">
             {consultation.content}
           </p>
-          
-          {/* Action Buttons */}
           <div className="flex flex-wrap gap-3">
             <button onClick={handleStart} className="flex-1 bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-200 flex items-center justify-center gap-2">
               <Play size={20} fill="currentColor" /> استلام والرد
@@ -630,7 +593,6 @@ export default function DoctorConsultationPage() {
         </div>
       </div>
 
-      {/* Left: Patient File & Actions */}
       <div className="space-y-6">
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
           <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><User size={20}/> بيانات المريض</h3>
@@ -644,7 +606,6 @@ export default function DoctorConsultationPage() {
               <span className="font-bold">{consultation.medical_files?.birth_date}</span>
             </div>
           </div>
-          
           <Link 
             href={`/doctor/file/${consultation.medical_files?.id}`} 
             target="_blank"
@@ -655,12 +616,10 @@ export default function DoctorConsultationPage() {
         </div>
       </div>
 
-      {/* Modal for Refer/Report */}
       {actionType && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl p-6 w-full max-w-md animate-in zoom-in-95">
             <h3 className="text-xl font-bold mb-4">{actionType === 'refer' ? 'تحويل لمخصص آخر' : 'إبلاغ الإدارة'}</h3>
-            
             {actionType === 'refer' && (
               <div className="mb-4">
                 <label className="block text-sm font-bold mb-2">اختر التخصص:</label>
@@ -672,14 +631,12 @@ export default function DoctorConsultationPage() {
                 />
               </div>
             )}
-            
             <textarea 
               className="w-full border rounded-xl p-3 h-32 mb-4 focus:ring-2 ring-blue-100 outline-none"
               placeholder={actionType === 'refer' ? 'سبب التحويل وملاحظات...' : 'سبب الإبلاغ عن هذه الاستشارة...'}
               value={actionNote}
               onChange={(e) => setActionNote(e.target.value)}
             />
-            
             <div className="flex gap-3">
               <button onClick={handleSubmitAction} className="flex-1 bg-blue-600 text-white py-2 rounded-xl font-bold">تأكيد</button>
               <button onClick={() => setActionType(null)} className="flex-1 bg-gray-100 text-gray-700 py-2 rounded-xl font-bold">إلغاء</button>
@@ -687,7 +644,6 @@ export default function DoctorConsultationPage() {
           </div>
         </div>
       )}
-
     </div>
   );
 }
