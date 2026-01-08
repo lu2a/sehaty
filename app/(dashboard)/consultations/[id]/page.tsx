@@ -1,15 +1,15 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase';
 import { useParams } from 'next/navigation';
 import ChatArea from '@/components/consultation/ChatArea';
 import { 
   Printer, Share2, FileText, CheckCircle, 
-  Stethoscope, Pill, AlertTriangle, Activity, Download
+  Pill, Activity
 } from 'lucide-react';
 
-// --- واجهات البيانات (مطابقة لما حفظناه عند الطبيب) ---
+// --- واجهات البيانات ---
 interface Medication {
   name: string;
   concentration: string;
@@ -46,13 +46,15 @@ export default function ConsultationDetail() {
       setCurrentUser(user);
 
       // 1. جلب بيانات المركز (للترويسة)
-      const { data: settings } = await supabase.from('center_settings').select('*').single();
+      // نستخدم (as any) هنا أيضاً احتياطاً
+      const { data: settings } = await (supabase.from('center_settings') as any).select('*').single();
       setCenterSettings(settings);
 
-      // 2. جلب الاستشارة
-      const { data: consultation } = await supabase
-        .from('consultations')
-        .select('*, medical_files(*), doctors(*, profiles(full_name))') // جلب بيانات الطبيب أيضاً
+      // 2. جلب الاستشارة مع البيانات المرتبطة
+      // 🔴 التصحيح: استخدام (as any) لتجاوز خطأ 'never' عند استخدام joins معقدة
+      const { data: consultation } = await (supabase
+        .from('consultations') as any)
+        .select('*, medical_files(*), doctors(*, profiles(full_name))')
         .eq('id', id)
         .single();
         
@@ -61,7 +63,11 @@ export default function ConsultationDetail() {
       // 3. تحليل الرد إذا كانت الاستشارة مغلقة
       if (consultation?.doctor_reply && consultation.status === 'closed') {
         try {
-          const parsed = JSON.parse(consultation.doctor_reply);
+          // محاولة فك التشفير إذا كان نص JSON
+          const parsed = typeof consultation.doctor_reply === 'string' 
+            ? JSON.parse(consultation.doctor_reply) 
+            : consultation.doctor_reply;
+            
           setReport(parsed);
         } catch (e) {
           console.error("Error parsing doctor reply", e);
@@ -75,7 +81,7 @@ export default function ConsultationDetail() {
     setShowPrescription(true);
     setTimeout(() => {
       window.print();
-      setShowPrescription(false); // إخفاء بعد الطباعة (اختياري)
+      setShowPrescription(false);
     }, 100);
   };
 
@@ -173,7 +179,7 @@ export default function ConsultationDetail() {
       )}
 
       {/* --- 3. تصميم الروشتة A4 (يظهر عند الطباعة أو الضغط على الزر) --- */}
-      {(showPrescription || typeof window !== 'undefined' && window.matchMedia('print').matches) && report && (
+      {(showPrescription || (typeof window !== 'undefined' && window.matchMedia('print').matches)) && report && (
         <div className={`bg-white p-8 mb-8 border shadow-2xl mx-auto print:shadow-none print:border-none print:w-full print:absolute print:top-0 print:left-0 print:z-50 ${showPrescription ? 'block' : 'hidden print:block'}`} style={{ maxWidth: '210mm', minHeight: '297mm' }}>
           
           {/* Header */}
