@@ -1,13 +1,13 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { 
-  User, Calendar, Clock, AlertTriangle, FileText, CheckCircle, 
+  User, Clock, AlertTriangle, FileText, CheckCircle, 
   Printer, ArrowRight, Stethoscope, Pill, FlaskConical, MessageCircle,
-  Share2, ChevronLeft, ChevronRight, Play, AlertOctagon, CornerUpLeft, UserPlus
+  Share2, ChevronLeft, ChevronRight, Play, AlertOctagon, CornerUpLeft, XCircle
 } from 'lucide-react';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 
@@ -29,6 +29,29 @@ interface ReplyData {
   redFlags: string;
   followUp: string;
   notes: string;
+}
+
+// تعريف الواجهات لتسهيل التعامل مع البيانات
+interface MedicalFile {
+  id: string;
+  full_name: string;
+  birth_date: string;
+  gender: string;
+  weight?: number;
+  blood_type?: string;
+  chronic_diseases?: any;
+}
+
+interface Consultation {
+  id: string;
+  created_at: string;
+  content: string;
+  status: 'pending' | 'active' | 'referred' | 'passed' | 'closed' | 'reported';
+  is_emergency: boolean; // لاحظ: قد تحتاج للتأكد من وجود هذا العمود في قاعدتك أو جلبه كـ urgency
+  urgency?: 'low' | 'medium' | 'high' | 'critical';
+  medical_files?: MedicalFile;
+  doctor_reply?: string;
+  diagnosis?: string;
 }
 
 // --- Components ---
@@ -188,7 +211,7 @@ export default function DoctorConsultationPage() {
 
   // State
   const [loading, setLoading] = useState(true);
-  const [consultation, setConsultation] = useState<any>(null);
+  const [consultation, setConsultation] = useState<Consultation | null>(null);
   const [centerSettings, setCenterSettings] = useState<any>(null);
   const [view, setView] = useState<'details' | 'wizard' | 'prescription'>('details');
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -216,10 +239,12 @@ export default function DoctorConsultationPage() {
       setCurrentUser(user);
 
       // 1. Consultation & File
+      // نستخدم as any هنا فقط في الاستعلام المعقد (Select) لتجاوز مشكلة العلاقات
       const { data: consult } = await (supabase.from('consultations') as any)
         .select('*, medical_files(*)')
         .eq('id', id).single();
-      setConsultation(consult);
+      
+      if (consult) setConsultation(consult as Consultation);
 
       // 2. Center Settings
       const { data: settings } = await (supabase.from('center_settings') as any).select('*').single();
@@ -243,36 +268,51 @@ export default function DoctorConsultationPage() {
 
   // Actions
   const handleStart = async () => {
-    await supabase.from('consultations').update({ status: 'in_progress', doctor_id: currentUser?.id }).eq('id', id);
+    if (!currentUser) return;
+    // ✅ تصحيح: استخدام 'active' بدلاً من 'in_progress' ليتوافق مع أنواع قاعدة البيانات
+    await supabase.from('consultations')
+      .update({ status: 'active', doctor_id: currentUser.id })
+      .eq('id', id);
     setView('wizard');
   };
 
   const handleSkip = async () => {
     if (!confirm('هل أنت متأكد من تخطي هذه الحالة؟ ستعود لقائمة الانتظار.')) return;
-    await supabase.from('consultations').update({ status: 'pending', doctor_id: null }).eq('id', id);
+    await supabase.from('consultations')
+      .update({ status: 'pending', doctor_id: null })
+      .eq('id', id);
     router.push('/doctor/dashboard');
   };
 
   const handleSubmitAction = async () => {
-    const updateData: any = { status: actionType === 'refer' ? 'referred' : 'reported' };
-    if (actionType === 'refer') updateData.notes = `تم التحويل إلى: ${targetSpecialty}. ملاحظات: ${actionNote}`;
-    else updateData.notes = `سبب الإبلاغ: ${actionNote}`;
+    const note = actionType === 'refer' 
+      ? `تم التحويل إلى: ${targetSpecialty}. ملاحظات: ${actionNote}` 
+      : `سبب الإبلاغ: ${actionNote}`;
 
-    await supabase.from('consultations').update(updateData).eq('id', id);
+    const newStatus = actionType === 'refer' ? 'referred' : 'reported';
+
+    // نحفظ الملاحظات في doctor_reply لأن الجدول لا يحتوي على notes
+    await supabase.from('consultations')
+      .update({ status: newStatus, doctor_reply: note })
+      .eq('id', id);
+      
     alert('تم تنفيذ الإجراء بنجاح');
     router.push('/doctor/dashboard');
   };
 
   const handleFinish = async () => {
+    // نحفظ بيانات الرد (الروشتة) كاملة كـ JSON string داخل doctor_reply
     await supabase.from('consultations').update({
       status: 'closed',
-      reply_content: replyData,
-      updated_at: new Date()
+      doctor_reply: JSON.stringify(replyData), 
+      diagnosis: replyData.diagnosis,
+      updated_at: new Date().toISOString()
     }).eq('id', id);
     setView('prescription');
   };
 
   if (loading) return <div className="p-20 text-center"><span className="animate-spin text-2xl">⏳</span></div>;
+  if (!consultation) return <div className="p-20 text-center text-red-500">الاستشارة غير موجودة</div>;
 
   // --- Views ---
 
@@ -283,7 +323,7 @@ export default function DoctorConsultationPage() {
           ...replyData,
           patientName: consultation.medical_files?.full_name,
           patientId: consultation.medical_files?.id,
-          patientAge: new Date().getFullYear() - new Date(consultation.medical_files?.birth_date).getFullYear(),
+          patientAge: consultation.medical_files?.birth_date ? new Date().getFullYear() - new Date(consultation.medical_files.birth_date).getFullYear() : '--',
           doctorName: 'اسم الطبيب', // يمكن جلبه من البروفايل
           specialty: 'باطنة عامة'
         }}
@@ -341,16 +381,17 @@ export default function DoctorConsultationPage() {
                   <label className="text-xs font-bold mb-1 block">اسم الدواء</label>
                   <SearchableSelect 
                     options={lists.medication || []} 
-                    value="" // controlled input resets after add logic needs refinement, simplified here
+                    value="" 
                     onChange={(val) => {
-                      // Temporary holder logic would be needed, simplified for brevity
                       const input = document.getElementById('med-name-input') as HTMLInputElement;
                       if(input) input.value = val;
+                      // نقوم بتحديث حالة مؤقتة هنا في التطبيق الحقيقي
+                      // للتبسيط سنعتمد على أن الطبيب سيضغط "إضافة" بعد الاختيار
+                      (document.getElementById('med-name-hidden') as HTMLInputElement).value = val;
                     }}
                     placeholder="بحث..."
                   />
-                  {/* Hidden inputs for capturing values manually for this demo */}
-                  <input id="med-name" className="hidden" /> 
+                  <input id="med-name-hidden" className="hidden" />
                 </div>
                 <div>
                   <label className="text-xs font-bold mb-1 block">التركيز</label>
@@ -374,14 +415,18 @@ export default function DoctorConsultationPage() {
                 <button 
                   className="col-span-2 md:col-span-6 bg-blue-600 text-white py-2 rounded-lg font-bold mt-2 hover:bg-blue-700"
                   onClick={() => {
-                    // In real app, bind these to state not DOM ids
-                    const name = (document.querySelector('div[class*="text-gray-800"]') as HTMLElement)?.innerText || 'دواء';
+                    const nameHidden = (document.getElementById('med-name-hidden') as HTMLInputElement).value;
+                    const nameSelect = (document.querySelector('div[class*="text-gray-800"]') as HTMLElement)?.innerText;
+                    const name = nameHidden || nameSelect || 'دواء';
+                    
                     const conc = (document.getElementById('med-conc') as HTMLInputElement).value;
                     const form = (document.getElementById('med-form') as HTMLInputElement).value;
                     const dose = (document.getElementById('med-dose') as HTMLInputElement).value;
                     const dur = (document.getElementById('med-dur') as HTMLInputElement).value;
                     
-                    setReplyData({...replyData, medications: [...replyData.medications, { name, concentration: conc, form, dose, duration: dur }]});
+                    if (name && name !== 'اختر...') {
+                      setReplyData({...replyData, medications: [...replyData.medications, { name, concentration: conc, form, dose, duration: dur }]});
+                    }
                   }}
                 >
                   + إضافة الدواء
@@ -589,9 +634,10 @@ export default function DoctorConsultationPage() {
             </div>
           </div>
           
-          {/* FIXED LINK */}
+          {/* ✅ هذا الرابط الآن يعمل ويفتح الملف في تبويب جديد */}
           <Link 
-href={`/doctor/file/${consultation.medical_files?.id}`}  // ✅ الرابط الجديد الصحيح
+            href={`/doctor/file/${consultation.medical_files?.id}`} 
+            target="_blank"
             className="block w-full text-center bg-gray-100 text-gray-700 font-bold py-3 rounded-xl mt-6 hover:bg-gray-200 transition"
           >
             عرض الملف الطبي الكامل ↗
