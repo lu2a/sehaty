@@ -1,11 +1,7 @@
-
 'use client';
-
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase';
 import { Calendar, Heart, Save } from 'lucide-react';
-
-// 🟢 تعريف Type لجدول pregnancy_records
 type PregnancyRecord = {
 id: string;
 user_id: string;
@@ -33,15 +29,11 @@ const { data } = await db
 .select('*')
 .eq('user_id', user.id)
 .maybeSingle<PregnancyRecord>();
-
-```
   if (data) {
     setRecord(data);
     setLastPeriod(data.last_period_date);
   }
 }
-```
-
 };
 
 const calculateDueDate = (date: string) => {
@@ -58,13 +50,10 @@ const now = new Date();
 const diff = Math.floor((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 7));
 return diff > 0 ? diff : 0;
 };
-
 const handleSave = async () => {
 if (!lastPeriod) return;
 const { data: { user } } = await supabase.auth.getUser();
 if (!user) return;
-
-```
 const payload = {
   user_id: user.id,
   last_period_date: lastPeriod,
@@ -77,28 +66,22 @@ if (record) {
 } else {
   await db.from('pregnancy_records').insert(payload);
 }
-
 fetchRecord();
 alert('تم تحديث البيانات 🤰');
-```
 
 };
 
 return ( <div className="p-4 min-h-screen dir-rtl font-cairo max-w-lg mx-auto bg-pink-50/30"> <h1 className="text-xl font-bold mb-6 text-center text-pink-700">متابعة الحمل</h1>
-
-```
   <div className="bg-white p-6 rounded-2xl shadow-sm border border-pink-100 text-center mb-6">
     <div className="w-20 h-20 bg-pink-100 rounded-full flex items-center justify-center mx-auto mb-4 text-pink-500">
       <Heart size={40} className="animate-pulse" />
     </div>
-
     {record ? (
       <div>
         <h2 className="text-3xl font-bold text-gray-800 mb-1">الأسبوع {calculateWeek(lastPeriod)}</h2>
         <p className="text-gray-500 text-sm">
           أنتِ الآن في الثلث {calculateWeek(lastPeriod) < 13 ? 'الأول' : calculateWeek(lastPeriod) < 27 ? 'الثاني' : 'الثالث'}
         </p>
-
         <div className="mt-6 bg-pink-50 p-4 rounded-xl border border-pink-100">
           <p className="text-xs font-bold text-pink-600 mb-1">موعد الولادة المتوقع</p>
           <p className="text-xl font-bold text-gray-800">{calculateDueDate(lastPeriod)}</p>
@@ -126,7 +109,5 @@ return ( <div className="p-4 min-h-screen dir-rtl font-cairo max-w-lg mx-auto bg
     </button>
   </div>
 </div>
-```
-
 );
 }
