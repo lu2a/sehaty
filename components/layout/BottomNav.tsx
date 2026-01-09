@@ -49,7 +49,7 @@ export default function BottomNav() {
 
   // تعريف الروابط الرئيسية
   const mainLinks = [
-    { name: 'الرئيسية', href: '/dashboard', icon: Home },
+    { name: 'الرئيسية', href: '/', icon: Home },
     { name: 'استشاراتي', href: '/consultations', icon: Stethoscope },
     { name: 'السجلات', href: '/records', icon: FileText },
     // إذا كان طبيب، نعرض "عيادتي" بدلاً من الحاسبات في الشريط الرئيسي
