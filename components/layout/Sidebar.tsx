@@ -6,7 +6,8 @@ import { usePathname, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
 import { 
   LayoutDashboard, FileText, Calculator, Users, Activity, 
-  Menu, X, LogOut, Calendar, ShieldCheck, PlusCircle, Stethoscope
+  Menu, X, LogOut, Calendar, ShieldCheck, PlusCircle, Stethoscope,
+  Info // ✅ تمت إضافة الأيقونة هنا
 } from 'lucide-react';
 
 // 1. قوائم المريض (تظهر للجميع)
@@ -19,7 +20,7 @@ const PATIENT_ITEMS = [
   { name: 'ملفي الطبي', href: '/medical-file', icon: Activity },
   { name: 'العائلة', href: '/family', icon: Users },
   { name: 'الحاسبات', href: '/calculators', icon: Calculator },
-  // ✅ العنصر الجديد: يجمع كل صفحات المعلومات
+  // ✅ زر دليل المركز
   { name: 'دليل المركز', href: '/center-info', icon: Info }, 
 ];
 
@@ -29,10 +30,9 @@ const DOCTOR_ITEMS = [
   { name: 'جدول المواعيد', href: '/admin/appointments', icon: Calendar },
 ];
 
-// 3. عنصر لوحة الإدارة (زر واحد فقط كما طلبت)
+// 3. عنصر لوحة الإدارة (زر واحد فقط)
 const ADMIN_DASHBOARD_ITEM = { name: 'لوحة القيادة (إدارة)', href: '/admin/dashboard', icon: ShieldCheck };
 
-// ✅ الحل: نستقبل userRole هنا ليختفي الخطأ في layout.tsx
 export default function Sidebar({ userRole = 'client' }: { userRole?: string }) {
   const [isOpen, setIsOpen] = useState(false);
   const pathname = usePathname();
@@ -50,7 +50,7 @@ export default function Sidebar({ userRole = 'client' }: { userRole?: string }) 
   // منطق دمج القوائم
   const getNavItems = () => {
     if (userRole === 'admin') {
-      // ✅ المدير يرى: زر الإدارة + قوائم المريض العادية
+      // المدير يرى: زر الإدارة + قوائم المريض العادية
       return [ADMIN_DASHBOARD_ITEM, ...PATIENT_ITEMS];
     }
     if (userRole === 'doctor') {
