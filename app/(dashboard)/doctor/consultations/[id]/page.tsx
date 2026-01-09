@@ -14,12 +14,11 @@ import ChatArea from '@/components/consultation/ChatArea';
 import MedicalFileModal from '@/components/consultation/MedicalFileModal';
 import { sendNotification } from '@/utils/notifications';
 
-// --- Interfaces & Types ---
+// --- Types & Interfaces ---
 
-// 1. تعريف حالة العرض (View Type) - هذا هو الحل للمشكلة الرئيسية
-type ViewType = 'details' | 'wizard' | 'prescription';
+// 1. ✅ الحل الجذري: تعريف نوع مخصص لحالة العرض يشمل الروشتة
+type ViewState = 'details' | 'wizard' | 'prescription';
 
-// 2. تعريف حالات الاستشارة
 type ConsultationStatus = 'pending' | 'active' | 'referred' | 'passed' | 'closed' | 'reported' | 'resolved';
 
 interface Medication {
@@ -153,8 +152,8 @@ export default function DoctorConsultationPage() {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [doctorProfile, setDoctorProfile] = useState<any>(null);
   
-  // ✅ استخدام ViewType المحددة لتجنب خطأ التوافق
-  const [view, setView] = useState<ViewType>('details');
+  // ✅ 2. استخدام النوع المصحح هنا
+  const [view, setView] = useState<ViewState>('details');
   
   const [showChat, setShowChat] = useState(false);
   const [showFileModal, setShowFileModal] = useState(false);
