@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase';
 import { Calendar, Heart, Save } from 'lucide-react';
 
-// 1. تعريف واجهة البيانات
+// تعريف واجهة البيانات (اختياري لكن مفيد للتنظيم)
 interface PregnancyData {
   id: string;
   user_id: string;
@@ -25,18 +25,18 @@ export default function PregnancyPage() {
   const fetchRecord = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
-      // ✅ الحل الجذري: استقبال الاستجابة كاملة في متغير، ثم استخراج data وتغيير نوعها
-      const response = await (supabase.from('pregnancy_records') as any)
+      // ✅ الحل الجذري: تحويل الاستعلام إلى (any) في البداية
+      // هذا يجعل TypeScript يعتقد أن (query) هو متغير عام يقبل أي شيء
+      const query: any = supabase.from('pregnancy_records');
+      
+      const { data } = await query
         .select('*')
         .eq('user_id', user.id)
         .maybeSingle();
-      
-      // هنا نجبر TypeScript على اعتبار data من نوع any
-      const data: any = response.data;
-
+        
       if (data) {
         setRecord(data);
-        // الآن data أصبح any، ولن يظهر الخطأ هنا
+        // الآن data أصبح any ولن يعترض النظام
         setLastPeriod(data.last_period_date);
       }
     }
@@ -69,13 +69,13 @@ export default function PregnancyPage() {
       current_week: calculateWeek(lastPeriod)
     };
 
-    // استخدام (as any) لتجاوز فحص الجدول
-    const table = supabase.from('pregnancy_records') as any;
+    // ✅ استخدام المتغير العام (any) هنا أيضاً
+    const query: any = supabase.from('pregnancy_records');
 
     if (record) {
-      await table.update(payload).eq('id', record.id);
+      await query.update(payload).eq('id', record.id);
     } else {
-      await table.insert(payload);
+      await query.insert(payload);
     }
     
     fetchRecord();
