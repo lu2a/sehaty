@@ -4,299 +4,169 @@ import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase';
 import Link from 'next/link';
 import { 
-  Users, Stethoscope, Calendar, Activity, Building,
-  Clock, CheckCircle, Settings, Database, FileText,
-  MessageSquare, ArrowLeft, UserPlus, BarChart3,
-  Newspaper // أيقونة جديدة للمقالات
+  Users, Stethoscope, FileText, Calendar, Settings, 
+  Building, MessageSquare, Banknote, Star, Activity 
 } from 'lucide-react';
 
 export default function AdminDashboard() {
   const supabase = createClient();
-  const [loading, setLoading] = useState(true);
-  
-  // الإحصائيات
   const [stats, setStats] = useState({
+    users: 0,
     doctors: 0,
-    patients: 0,
-    clinics: 0,
-    pendingConsultations: 0,
-    articles: 0 // إحصائية جديدة
+    consultations: 0,
+    files: 0,
+    active_appointments: 0
   });
 
-  const [recentConsults, setRecentConsults] = useState<any[]>([]);
-
   useEffect(() => {
-    fetchDashboardData();
-  }, []);
-
-  const fetchDashboardData = async () => {
-    setLoading(true);
-    try {
-      const [
-        { count: doctors },
-        { count: patients },
-        { count: clinics },
-        { count: pending },
-        { count: articles }, // جلب عدد المقالات
-        { data: recent }
-      ] = await Promise.all([
-        supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'doctor'),
-        supabase.from('profiles').select('*', { count: 'exact', head: true }).neq('role', 'doctor').neq('role', 'admin'),
-        supabase.from('clinics').select('*', { count: 'exact', head: true }),
-        supabase.from('consultations').select('*', { count: 'exact', head: true }).neq('status', 'closed'),
-        (supabase.from('articles') as any).select('*', { count: 'exact', head: true }), // تأكد أن الجدول موجود
-        (supabase.from('consultations') as any)
-          .select('*, medical_files(full_name)')
-          .order('created_at', { ascending: false })
-          .limit(5)
-      ]);
+    async function getStats() {
+      // جلب إحصائيات سريعة
+      const { count: users } = await supabase.from('profiles').select('*', { count: 'exact', head: true });
+      const { count: doctors } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'doctor');
+      const { count: consultations } = await supabase.from('consultations').select('*', { count: 'exact', head: true });
+      const { count: files } = await supabase.from('medical_files').select('*', { count: 'exact', head: true });
+      const { count: appointments } = await supabase.from('appointments').select('*', { count: 'exact', head: true }).eq('status', 'confirmed');
 
       setStats({
+        users: users || 0,
         doctors: doctors || 0,
-        patients: patients || 0,
-        clinics: clinics || 0,
-        pendingConsultations: pending || 0,
-        articles: articles || 0
+        consultations: consultations || 0,
+        files: files || 0,
+        active_appointments: appointments || 0
       });
-
-      if (recent) setRecentConsults(recent);
-
-    } catch (error) {
-      console.error('Error fetching admin data:', error);
     }
-    setLoading(false);
-  };
-
-  // قائمة وحدات التحكم (تمت إضافة إدارة المقالات)
-  const controlModules = [
-    {
-      title: 'إدارة المقالات والنصائح',
-      subtitle: 'إضافة، تعديل، ورفع إكسيل',
-      href: '/admin/articles', // رابط الصفحة الجديدة
-      icon: Newspaper,
-      color: 'text-rose-600',
-      bg: 'bg-rose-50',
-      border: 'hover:border-rose-300'
-    },
-    {
-      title: 'إدارة العيادات',
-      subtitle: 'إضافة وتعديل التخصصات',
-      href: '/admin/clinics',
-      icon: Building,
-      color: 'text-blue-600',
-      bg: 'bg-blue-50',
-      border: 'hover:border-blue-300'
-    },
-    {
-      title: 'الأطباء والمستخدمين',
-      subtitle: 'الصلاحيات وإضافة أطباء',
-      href: '/admin/doctors',
-      icon: UserPlus,
-      color: 'text-green-600',
-      bg: 'bg-green-50',
-      border: 'hover:border-green-300'
-    },
-    {
-      title: 'الاستشارات الطبية',
-      subtitle: 'متابعة الردود والحالات',
-      href: '/admin/consultations',
-      icon: MessageSquare,
-      color: 'text-purple-600',
-      bg: 'bg-purple-50',
-      border: 'hover:border-purple-300'
-    },
-    {
-      title: 'المواعيد والحجوزات',
-      subtitle: 'جدول العيادات اليومي',
-      href: '/admin/appointments',
-      icon: Calendar,
-      color: 'text-pink-600',
-      bg: 'bg-pink-50',
-      border: 'hover:border-pink-300'
-    },
-    {
-      title: 'الملفات الطبية',
-      subtitle: 'بحث بالرقم القومي',
-      href: '/admin/medical-files',
-      icon: FileText,
-      color: 'text-orange-600',
-      bg: 'bg-orange-50',
-      border: 'hover:border-orange-300'
-    },
-    {
-      title: 'القوائم الطبية',
-      subtitle: 'قواعد بيانات الأدوية',
-      href: '/admin/medical-lists',
-      icon: Database,
-      color: 'text-teal-600',
-      bg: 'bg-teal-50',
-      border: 'hover:border-teal-300'
-    },
-    {
-      title: 'الإشراف والمتابعة',
-      subtitle: 'سجل النشاط والتقارير',
-      href: '/admin/supervision',
-      icon: BarChart3,
-      color: 'text-indigo-600',
-      bg: 'bg-indigo-50',
-      border: 'hover:border-indigo-300'
-    },
-    {
-      title: 'إعدادات المركز',
-      subtitle: 'البيانات الأساسية',
-      href: '/admin/settings',
-      icon: Settings,
-      color: 'text-slate-600',
-      bg: 'bg-slate-100',
-      border: 'hover:border-slate-300'
-    },
-  ];
+    getStats();
+  }, []);
 
   return (
-    <div className="p-6 dir-rtl font-cairo bg-slate-50 min-h-screen">
+    <div className="p-6 md:p-8 dir-rtl min-h-screen bg-gray-50 font-cairo">
       
-      {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+      {/* 1. الترويسة */}
+      <div className="flex justify-between items-center mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900 mb-1">لوحة القيادة 🕹️</h1>
-          <p className="text-slate-500 text-sm">نظرة عامة وتحكم كامل في أقسام المركز.</p>
+          <h1 className="text-3xl font-bold text-slate-800 flex items-center gap-2">
+             لوحة القيادة المركزية <Activity className="text-blue-600"/>
+          </h1>
+          <p className="text-gray-500 mt-1">أهلاً بك، لديك الصلاحيات الكاملة لإدارة المنصة.</p>
         </div>
-        <div className="flex gap-3">
-          <div className="bg-white px-4 py-2 rounded-xl border text-sm font-bold text-slate-600 shadow-sm">
-             📅 {new Date().toLocaleDateString('ar-EG')}
-          </div>
-        </div>
-      </div>
-
-      {/* Statistics Row */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
-        {/* ... (نفس الكروت القديمة مع تعديل الـ Grid إلى 5 أعمدة) ... */}
-        {/* سأضع الكرت الجديد للمقالات هنا */}
-        <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
-          <div>
-            <p className="text-slate-400 text-xs font-bold mb-1">المقالات المنشورة</p>
-            <h3 className="text-2xl font-bold text-slate-800">{stats.articles}</h3>
-          </div>
-          <div className="w-10 h-10 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center">
-            <Newspaper size={20} />
-          </div>
-        </div>
-
-        {/* ... بقية الكروت الموجودة في كودك الأصلي (الأطباء، العيادات، إلخ) ... */}
-        <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
-          <div>
-            <p className="text-slate-400 text-xs font-bold mb-1">إجمالي الأطباء</p>
-            <h3 className="text-2xl font-bold text-slate-800">{stats.doctors}</h3>
-          </div>
-          <div className="w-10 h-10 bg-green-50 text-green-600 rounded-full flex items-center justify-center">
-            <Stethoscope size={20} />
-          </div>
-        </div>
-        
-        <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
-          <div>
-            <p className="text-slate-400 text-xs font-bold mb-1">المرضى</p>
-            <h3 className="text-2xl font-bold text-slate-800">{stats.patients}</h3>
-          </div>
-          <div className="w-10 h-10 bg-orange-50 text-orange-600 rounded-full flex items-center justify-center">
-            <Users size={20} />
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
-          <div>
-            <p className="text-slate-400 text-xs font-bold mb-1">استشارات نشطة</p>
-            <h3 className="text-2xl font-bold text-red-600">{stats.pendingConsultations}</h3>
-          </div>
-          <div className="w-10 h-10 bg-red-50 text-red-600 rounded-full flex items-center justify-center">
-            <Activity size={20} />
-          </div>
-        </div>
-        
-         <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
-          <div>
-            <p className="text-slate-400 text-xs font-bold mb-1">عدد العيادات</p>
-            <h3 className="text-2xl font-bold text-slate-800">{stats.clinics}</h3>
-          </div>
-          <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center">
-            <Building size={20} />
-          </div>
+        <div className="flex gap-2">
+          <span className="bg-green-100 text-green-700 text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1">
+            <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span> النظام يعمل
+          </span>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Control Grid */}
-        <div className="lg:col-span-2">
-           <h3 className="font-bold text-lg text-slate-800 mb-4 flex items-center gap-2">
-             <Settings size={20} className="text-slate-400"/> أقسام الإدارة
-           </h3>
-           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-             {controlModules.map((mod, idx) => {
-               const Icon = mod.icon;
-               return (
-                 <Link key={idx} href={mod.href} className="group">
-                   <div className={`bg-white p-5 rounded-2xl shadow-sm border border-slate-200 transition-all h-full ${mod.border} hover:shadow-md flex items-center gap-4`}>
-                     <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${mod.bg} ${mod.color}`}>
-                       <Icon size={24} />
-                     </div>
-                     <div className="flex-1">
-                       <h4 className="font-bold text-slate-800 group-hover:text-blue-600 transition">{mod.title}</h4>
-                       <p className="text-xs text-slate-400">{mod.subtitle}</p>
-                     </div>
-                     <ArrowLeft size={16} className="text-slate-300 group-hover:text-blue-500 group-hover:-translate-x-1 transition" />
-                   </div>
-                 </Link>
-               );
-             })}
-           </div>
-        </div>
+      {/* 2. بطاقات الإحصائيات السريعة */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-10">
+        <StatCard title="المستخدمين" value={stats.users} icon={<Users size={24}/>} color="blue" />
+        <StatCard title="الأطباء" value={stats.doctors} icon={<Stethoscope size={24}/>} color="green" />
+        <StatCard title="الاستشارات" value={stats.consultations} icon={<MessageSquare size={24}/>} color="purple" />
+        <StatCard title="الملفات الطبية" value={stats.files} icon={<FileText size={24}/>} color="orange" />
+        <StatCard title="حجوزات نشطة" value={stats.active_appointments} icon={<Calendar size={24}/>} color="red" />
+      </div>
 
-        {/* Recent Activity */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 flex flex-col h-full">
-           <div className="p-5 border-b flex justify-between items-center bg-slate-50/50 rounded-t-2xl">
-            <h3 className="font-bold text-slate-800 flex items-center gap-2">
-              <Clock className="text-blue-500" size={18}/> آخر الاستشارات
-            </h3>
-            <Link href="/admin/consultations" className="text-xs text-blue-600 hover:underline">عرض الكل</Link>
-          </div>
-          
-          <div className="flex-1 overflow-y-auto max-h-[400px] p-2">
-            {loading ? (
-              <div className="text-center p-4 text-gray-400 text-sm">جاري التحميل...</div>
-            ) : recentConsults.length === 0 ? (
-              <div className="text-center p-8 text-gray-400">
-                <MessageSquare size={30} className="mx-auto mb-2 opacity-20"/>
-                <p className="text-sm">لا توجد استشارات حديثة</p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {recentConsults.map((item) => (
-                  <Link href={`/admin/review/${item.id}`} key={item.id}>
-                    <div className="p-3 hover:bg-slate-50 rounded-xl transition border border-transparent hover:border-slate-100 group">
-                      <div className="flex justify-between items-start mb-1">
-                        <span className="font-bold text-sm text-slate-700">{item.medical_files?.full_name || 'مجهول'}</span>
-                        <span className="text-[10px] text-slate-400">{new Date(item.created_at).toLocaleDateString('ar-EG')}</span>
-                      </div>
-                      <p className="text-xs text-slate-500 line-clamp-1 mb-2">{item.content}</p>
-                      <div className="flex items-center gap-2">
-                        {item.status === 'closed' ? (
-                          <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1">
-                            <CheckCircle size={10}/> تم الرد
-                          </span>
-                        ) : (
-                          <span className="bg-orange-100 text-orange-700 px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1">
-                            <Clock size={10}/> انتظار
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
+      {/* 3. أقسام الإدارة */}
+      <h2 className="text-xl font-bold mb-4 text-slate-800 border-b pb-2">التحكم والإدارة</h2>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 
+        {/* --- الإضافات الجديدة حسب طلبك --- */}
+
+        {/* 1. إدارة الأسعار (يدوي وإكسيل) */}
+        <Link href="/admin/prices" className="admin-card group">
+          <div className="icon-box bg-emerald-100 text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white">
+            <Banknote size={28} />
+          </div>
+          <div>
+            <h3 className="font-bold text-lg text-slate-800">قائمة الأسعار</h3>
+            <p className="text-sm text-gray-500">إضافة الأسعار يدوياً أو رفع ملف Excel.</p>
+          </div>
+        </Link>
+
+        {/* 2. الإشراف الفني والجودة (تم الدمج هنا) */}
+        <Link href="/admin/quality" className="admin-card group">
+          <div className="icon-box bg-rose-100 text-rose-600 group-hover:bg-rose-600 group-hover:text-white">
+            <Star size={28} />
+          </div>
+          <div>
+            <h3 className="font-bold text-lg text-slate-800">الجودة والتقييمات</h3>
+            <p className="text-sm text-gray-500">الإشراف الفني ومراقبة تقييمات المرضى.</p>
+          </div>
+        </Link>
+
+        {/* --- باقي العناصر الأساسية --- */}
+
+        <Link href="/admin/users" className="admin-card group">
+          <div className="icon-box bg-indigo-100 text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white">
+            <Users size={28} />
+          </div>
+          <div>
+            <h3 className="font-bold text-lg text-slate-800">إدارة المستخدمين</h3>
+            <p className="text-sm text-gray-500">ترقية الحسابات وإدارة الصلاحيات.</p>
+          </div>
+        </Link>
+
+        <Link href="/admin/clinics" className="admin-card group">
+          <div className="icon-box bg-orange-100 text-orange-600 group-hover:bg-orange-600 group-hover:text-white">
+            <Building size={28} />
+          </div>
+          <div>
+            <h3 className="font-bold text-lg text-slate-800">إدارة العيادات</h3>
+            <p className="text-sm text-gray-500">إضافة وتعديل التخصصات والأقسام.</p>
+          </div>
+        </Link>
+
+        <Link href="/admin/doctors" className="admin-card group">
+          <div className="icon-box bg-green-100 text-green-600 group-hover:bg-green-600 group-hover:text-white">
+            <Stethoscope size={28} />
+          </div>
+          <div>
+            <h3 className="font-bold text-lg text-slate-800">الأطباء والموظفين</h3>
+            <p className="text-sm text-gray-500">سجلات الأطباء وجداول العمل.</p>
+          </div>
+        </Link>
+
+        <Link href="/admin/settings" className="admin-card group">
+          <div className="icon-box bg-gray-100 text-gray-600 group-hover:bg-gray-600 group-hover:text-white">
+            <Settings size={28} />
+          </div>
+          <div>
+            <h3 className="font-bold text-lg text-slate-800">إعدادات النظام</h3>
+            <p className="text-sm text-gray-500">بيانات المركز والمعلومات الأساسية.</p>
+          </div>
+        </Link>
+
+      </div>
+
+      <style jsx>{`
+        .admin-card {
+          @apply bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4 transition-all hover:shadow-lg hover:-translate-y-1 cursor-pointer;
+        }
+        .icon-box {
+          @apply w-14 h-14 rounded-2xl flex items-center justify-center transition-colors duration-300;
+        }
+      `}</style>
+    </div>
+  );
+}
+
+// مكون البطاقة الإحصائية
+function StatCard({ title, value, icon, color }: any) {
+  const colors: any = {
+    blue: 'border-blue-500 text-blue-900 bg-blue-50',
+    green: 'border-green-500 text-green-900 bg-green-50',
+    purple: 'border-purple-500 text-purple-900 bg-purple-50',
+    orange: 'border-orange-500 text-orange-900 bg-orange-50',
+    red: 'border-red-500 text-red-900 bg-red-50',
+  };
+  
+  return (
+    <div className={`p-4 rounded-xl shadow-sm border-r-4 bg-white flex justify-between items-center ${colors[color].replace('bg-', 'border-')}`}>
+      <div>
+        <p className="text-gray-500 text-xs font-bold mb-1">{title}</p>
+        <h3 className="text-2xl font-bold text-slate-800">{value}</h3>
+      </div>
+      <div className={`p-2 rounded-lg ${colors[color]}`}>
+        {icon}
       </div>
     </div>
   );
