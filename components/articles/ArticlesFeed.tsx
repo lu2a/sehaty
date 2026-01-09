@@ -25,10 +25,12 @@ interface Comment {
   user_id: string;
 }
 
+// ✅ تعريف الواجهة الخاصة بالـ Props
 interface ArticlesFeedProps {
-  compact?: boolean; // خاصية جديدة للتحكم في الحجم
+  compact?: boolean; // خاصية اختيارية
 }
 
+// ✅ استقبال الـ props هنا
 export default function ArticlesFeed({ compact = false }: ArticlesFeedProps) {
   const supabase = createClient();
   const [articles, setArticles] = useState<Article[]>([]);
@@ -46,6 +48,7 @@ export default function ArticlesFeed({ compact = false }: ArticlesFeedProps) {
       const { data: { user } } = await supabase.auth.getUser();
       setCurrentUser(user);
 
+      // (as any) لتجاوز مشاكل الأنواع مؤقتاً
       const { data } = await (supabase.from('articles') as any)
         .select('*')
         .order('created_at', { ascending: false });
@@ -127,8 +130,7 @@ export default function ArticlesFeed({ compact = false }: ArticlesFeedProps) {
   return (
     <div className="w-full dir-rtl font-cairo">
       
-      {/* --- Filter Bar (Show only if not compact or explicitly needed) --- */}
-      {/* في الوضع المضغوط، الفلاتر موجودة بالفعل في الهيدر الثابت في الصفحة الرئيسية، لذا يمكن إخفاؤها هنا أو تركها */}
+      {/* إخفاء الفلاتر إذا كان الوضع compact لأنها موجودة في الصفحة الرئيسية */}
       {!compact && categories.length > 0 && (
         <div className="flex gap-2 overflow-x-auto pb-4 mb-4 scrollbar-hide">
           {categories.map(cat => (
@@ -166,7 +168,7 @@ export default function ArticlesFeed({ compact = false }: ArticlesFeedProps) {
                   <div className="flex items-center justify-center h-full text-gray-400"><FileText size={compact ? 24 : 40}/></div>
                 )}
                 
-                {/* Category Badge */}
+                {/* Category Badge - Hidden in compact */}
                 {!compact && (
                   <span className="absolute top-2 right-2 bg-blue-600/90 text-white text-xs px-2 py-1 rounded-lg backdrop-blur-sm">
                     {article.category}
@@ -184,7 +186,7 @@ export default function ArticlesFeed({ compact = false }: ArticlesFeedProps) {
                   <p className="text-gray-500 text-sm line-clamp-2 mb-4">{article.content}</p>
                 )}
                 
-                {/* Footer (Date & Likes) - Hide in compact mode for cleaner look */}
+                {/* Footer */}
                 {!compact ? (
                   <div className="flex justify-between items-center text-xs text-gray-400 border-t pt-3">
                     <span className="flex items-center gap-1"><Calendar size={12}/> {new Date(article.created_at).toLocaleDateString('ar-EG')}</span>
