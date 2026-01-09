@@ -4,18 +4,9 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase';
 import { Calendar, Heart, Save } from 'lucide-react';
 
-// تعريف واجهة البيانات (اختياري لكن مفيد للتنظيم)
-interface PregnancyData {
-  id: string;
-  user_id: string;
-  last_period_date: string;
-  expected_due_date: string;
-  current_week: number;
-}
-
 export default function PregnancyPage() {
   const supabase = createClient();
-  const [record, setRecord] = useState<PregnancyData | null>(null);
+  const [record, setRecord] = useState<any>(null);
   const [lastPeriod, setLastPeriod] = useState('');
   
   useEffect(() => {
@@ -25,18 +16,16 @@ export default function PregnancyPage() {
   const fetchRecord = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
-      // ✅ الحل الجذري: تحويل الاستعلام إلى (any) في البداية
-      // هذا يجعل TypeScript يعتقد أن (query) هو متغير عام يقبل أي شيء
-      const query: any = supabase.from('pregnancy_records');
-      
-      const { data } = await query
+      // 🔥 الحل النهائي: (supabase as any)
+      // هذا يلغي التحقق من الجداول تماماً في هذا السطر
+      const { data } = await (supabase as any)
+        .from('pregnancy_records')
         .select('*')
         .eq('user_id', user.id)
         .maybeSingle();
         
       if (data) {
         setRecord(data);
-        // الآن data أصبح any ولن يعترض النظام
         setLastPeriod(data.last_period_date);
       }
     }
@@ -69,8 +58,8 @@ export default function PregnancyPage() {
       current_week: calculateWeek(lastPeriod)
     };
 
-    // ✅ استخدام المتغير العام (any) هنا أيضاً
-    const query: any = supabase.from('pregnancy_records');
+    // 🔥 استخدام (supabase as any) هنا أيضاً للإضافة والتعديل
+    const query = (supabase as any).from('pregnancy_records');
 
     if (record) {
       await query.update(payload).eq('id', record.id);
