@@ -25,7 +25,11 @@ interface Comment {
   user_id: string;
 }
 
-export default function ArticlesFeed() {
+interface ArticlesFeedProps {
+  compact?: boolean; // خاصية جديدة للتحكم في الحجم
+}
+
+export default function ArticlesFeed({ compact = false }: ArticlesFeedProps) {
   const supabase = createClient();
   const [articles, setArticles] = useState<Article[]>([]);
   const [filteredArticles, setFilteredArticles] = useState<Article[]>([]);
@@ -42,7 +46,6 @@ export default function ArticlesFeed() {
       const { data: { user } } = await supabase.auth.getUser();
       setCurrentUser(user);
 
-      // استخدام (as any) لتجاوز خطأ عدم وجود الجدول في الأنواع
       const { data } = await (supabase.from('articles') as any)
         .select('*')
         .order('created_at', { ascending: false });
@@ -50,7 +53,6 @@ export default function ArticlesFeed() {
       if (data) {
         setArticles(data);
         setFilteredArticles(data);
-        // استخراج التصنيفات الفريدة
         const cats = ['الكل', ...Array.from(new Set(data.map((a: any) => a.category)))];
         setCategories(cats as string[]);
       }
@@ -68,10 +70,9 @@ export default function ArticlesFeed() {
     }
   };
 
-  // 3. Article Interaction (Open/Close)
+  // 3. Article Interaction
   const openArticle = async (article: Article) => {
     setSelectedArticle(article);
-    // Fetch Comments
     const { data } = await (supabase.from('article_comments') as any)
       .select('*')
       .eq('article_id', article.id)
@@ -89,41 +90,29 @@ export default function ArticlesFeed() {
     e.stopPropagation();
     if (!currentUser) return alert('يجب تسجيل الدخول');
     
-    // ✅ تصحيح: استخدام (as any) لتجاوز خطأ never
     const { error } = await (supabase.from('article_likes') as any).insert({ 
       article_id: articleId, 
       user_id: currentUser.id 
     });
     
     if (!error) {
-        // Update local count (Optimistic update)
         const updated = articles.map(a => a.id === articleId ? {...a, likes_count: (a.likes_count || 0) + 1} : a);
         setArticles(updated);
         
-        // Update filtered list as well to reflect changes immediately
         if (selectedCategory === 'الكل') {
           setFilteredArticles(updated);
         } else {
           setFilteredArticles(updated.filter(a => a.category === selectedCategory));
         }
-        
-        // Optional: Call RPC to update count in DB if you have created the function
-        // await supabase.rpc('increment_likes', { row_id: articleId });
     } else {
-        // إذا كان الخطأ بسبب التكرار (Unique constraint)
-        if (error.code === '23505') {
-           alert('لقد أعجبت بهذا المقال مسبقاً');
-        } else {
-           console.error(error);
-        }
+        if (error.code === '23505') alert('لقد أعجبت بهذا المقال مسبقاً');
     }
   };
 
   const handleSendComment = async () => {
     if (!newComment.trim() || !selectedArticle || !currentUser) return;
     
-    // ✅ تصحيح: استخدام (as any) هنا أيضاً
-    const { data, error } = await (supabase.from('article_comments') as any).insert({
+    const { data } = await (supabase.from('article_comments') as any).insert({
       article_id: selectedArticle.id,
       user_id: currentUser.id,
       content: newComment
@@ -138,8 +127,9 @@ export default function ArticlesFeed() {
   return (
     <div className="w-full dir-rtl font-cairo">
       
-      {/* --- Filter Bar --- */}
-      {categories.length > 0 && (
+      {/* --- Filter Bar (Show only if not compact or explicitly needed) --- */}
+      {/* في الوضع المضغوط، الفلاتر موجودة بالفعل في الهيدر الثابت في الصفحة الرئيسية، لذا يمكن إخفاؤها هنا أو تركها */}
+      {!compact && categories.length > 0 && (
         <div className="flex gap-2 overflow-x-auto pb-4 mb-4 scrollbar-hide">
           {categories.map(cat => (
             <button
@@ -157,52 +147,72 @@ export default function ArticlesFeed() {
         </div>
       )}
 
-      {/* --- Articles Grid (Cards) --- */}
+      {/* --- Articles Grid --- */}
       {filteredArticles.length === 0 ? (
         <div className="text-center py-10 text-gray-400">لا توجد مقالات حالياً</div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className={`grid gap-4 ${compact ? 'grid-cols-2' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'}`}>
           {filteredArticles.map(article => (
             <div 
               key={article.id} 
               onClick={() => openArticle(article)}
-              className="bg-white rounded-2xl shadow-sm border overflow-hidden cursor-pointer hover:shadow-md transition group"
+              className={`bg-white rounded-2xl shadow-sm border overflow-hidden cursor-pointer hover:shadow-md transition group ${compact ? 'text-xs' : ''}`}
             >
-              <div className="h-40 bg-gray-200 relative overflow-hidden">
+              {/* Image Section */}
+              <div className={`bg-gray-200 relative overflow-hidden ${compact ? 'h-28' : 'h-40'}`}>
                 {article.image_url ? (
                   <img src={article.image_url} alt={article.title} className="w-full h-full object-cover group-hover:scale-105 transition duration-500" />
                 ) : (
-                  <div className="flex items-center justify-center h-full text-gray-400"><FileText size={40}/></div>
+                  <div className="flex items-center justify-center h-full text-gray-400"><FileText size={compact ? 24 : 40}/></div>
                 )}
-                <span className="absolute top-2 right-2 bg-blue-600/90 text-white text-xs px-2 py-1 rounded-lg backdrop-blur-sm">
-                  {article.category}
-                </span>
+                
+                {/* Category Badge */}
+                {!compact && (
+                  <span className="absolute top-2 right-2 bg-blue-600/90 text-white text-xs px-2 py-1 rounded-lg backdrop-blur-sm">
+                    {article.category}
+                  </span>
+                )}
               </div>
               
-              <div className="p-4">
-                <h3 className="font-bold text-lg text-gray-800 mb-2 line-clamp-1">{article.title}</h3>
-                <p className="text-gray-500 text-sm line-clamp-2 mb-4">{article.content}</p>
+              {/* Content Section */}
+              <div className={`p-3 ${compact ? 'p-2' : 'p-4'}`}>
+                <h3 className={`font-bold text-gray-800 mb-1 line-clamp-2 ${compact ? 'text-xs leading-5' : 'text-lg'}`}>
+                  {article.title}
+                </h3>
                 
-                <div className="flex justify-between items-center text-xs text-gray-400 border-t pt-3">
-                  <span className="flex items-center gap-1"><Calendar size={12}/> {new Date(article.created_at).toLocaleDateString('ar-EG')}</span>
-                  <div className="flex gap-3">
-                    <button onClick={(e) => handleLike(e, article.id)} className="flex items-center gap-1 hover:text-red-500 transition group-hover:text-red-500">
-                      <Heart size={14} className={article.likes_count > 0 ? "fill-red-500 text-red-500" : ""} /> {article.likes_count || 0}
-                    </button>
+                {!compact && (
+                  <p className="text-gray-500 text-sm line-clamp-2 mb-4">{article.content}</p>
+                )}
+                
+                {/* Footer (Date & Likes) - Hide in compact mode for cleaner look */}
+                {!compact ? (
+                  <div className="flex justify-between items-center text-xs text-gray-400 border-t pt-3">
+                    <span className="flex items-center gap-1"><Calendar size={12}/> {new Date(article.created_at).toLocaleDateString('ar-EG')}</span>
+                    <div className="flex gap-3">
+                      <button onClick={(e) => handleLike(e, article.id)} className="flex items-center gap-1 hover:text-red-500 transition group-hover:text-red-500">
+                        <Heart size={14} className={article.likes_count > 0 ? "fill-red-500 text-red-500" : ""} /> {article.likes_count || 0}
+                      </button>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                   /* Compact Footer */
+                   <div className="flex justify-between items-center mt-2 pt-2 border-t border-gray-100">
+                      <span className="text-[10px] text-gray-400">{article.category}</span>
+                      <span className="text-[10px] text-blue-600 font-bold flex items-center">اقرأ <ChevronRight size={10}/></span>
+                   </div>
+                )}
               </div>
             </div>
           ))}
         </div>
       )}
 
-      {/* --- Full Article View (Modal/Overlay) --- */}
+      {/* --- Full Article View (Modal) --- */}
       {selectedArticle && (
         <div className="fixed inset-0 z-50 bg-white md:bg-black/50 flex justify-end animate-in fade-in duration-200">
           <div className="w-full md:w-[600px] bg-white h-full shadow-2xl overflow-y-auto relative animate-in slide-in-from-right duration-300">
             
-            {/* Header / Nav */}
+            {/* Header */}
             <div className="sticky top-0 bg-white/80 backdrop-blur-md border-b p-4 flex justify-between items-center z-10">
               <button onClick={closeArticle} className="p-2 hover:bg-gray-100 rounded-full bg-gray-50">
                 <ChevronRight size={24} className="text-gray-700" />
@@ -213,7 +223,7 @@ export default function ArticlesFeed() {
               </div>
             </div>
 
-            {/* Content */}
+            {/* Article Body */}
             <div className="p-6">
               {selectedArticle.image_url && (
                 <img src={selectedArticle.image_url} className="w-full h-64 object-cover rounded-2xl mb-6 shadow-sm" alt="" />
@@ -231,13 +241,12 @@ export default function ArticlesFeed() {
               </div>
             </div>
 
-            {/* Interaction Section */}
+            {/* Comments Section */}
             <div className="bg-gray-50 border-t p-6 mt-8 pb-20">
               <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
                 <MessageCircle size={18}/> التعليقات
               </h3>
               
-              {/* Comment List */}
               <div className="space-y-4 mb-6">
                 {comments.length === 0 && <p className="text-center text-gray-400 text-sm">كن أول المعلقين!</p>}
                 {comments.map(comment => (
@@ -251,19 +260,18 @@ export default function ArticlesFeed() {
                 ))}
               </div>
 
-              {/* Add Comment */}
               <div className="flex gap-2">
                 <input 
                   type="text" 
                   value={newComment}
                   onChange={(e) => setNewComment(e.target.value)}
                   placeholder="أضف تعليقك..." 
-                  className="flex-1 p-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-100"
+                  className="flex-1 p-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-100 text-sm"
                 />
                 <button 
                   onClick={handleSendComment}
                   disabled={!newComment.trim()}
-                  className="bg-blue-600 text-white px-4 rounded-xl font-bold hover:bg-blue-700 disabled:opacity-50"
+                  className="bg-blue-600 text-white px-4 rounded-xl font-bold hover:bg-blue-700 disabled:opacity-50 text-sm"
                 >
                   إرسال
                 </button>
