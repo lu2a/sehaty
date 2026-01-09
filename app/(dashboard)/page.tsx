@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { 
   Activity, Calendar, Stethoscope, FileText, 
   Search, Bell, Plus, Baby, HeartPulse, Scale,
-  ChevronLeft
+  ChevronLeft, Droplet // ✅ تمت إضافة أيقونة الدورة الشهرية
 } from 'lucide-react';
 
 import ArticlesFeed from '@/components/articles/ArticlesFeed';
@@ -14,22 +14,29 @@ import ShareAppButton from '@/components/pwa/ShareAppButton';
 export default function DashboardHomePage() {
   const [showSearch, setShowSearch] = useState(false);
 
+  // ✅ تم تحديث القائمة: إصلاح الروابط وإضافة الدورة الشهرية
   const quickActions = [
     { name: 'استشارة جديدة', href: '/consultations/new', icon: Stethoscope, color: 'bg-blue-600 text-white' },
     { name: 'حجز موعد', href: '/appointments/book', icon: Calendar, color: 'bg-purple-100 text-purple-600' },
     { name: 'ملفاتي الطبية', href: '/medical-file', icon: FileText, color: 'bg-green-100 text-green-600' },
-    { name: 'مؤشراتي الحيوية', href: '/vitals', icon: Activity, color: 'bg-red-100 text-red-600' },
+    
+    // ✅ تم التعديل: ربط مؤشراتي الحيوية بصفحة الضغط والسكر الموجودة فعلياً
+    { name: 'مؤشراتي الحيوية', href: '/vitals/pressure', icon: Activity, color: 'bg-red-100 text-red-600' },
+    
     { name: 'سجل ضغط/سكر', href: '/vitals/pressure', icon: HeartPulse, color: 'bg-rose-100 text-rose-600', isNew: true },
     { name: 'سجل طفل', href: '/medical-file/child', icon: Baby, color: 'bg-orange-100 text-orange-600', isNew: true },
     { name: 'سجل حمل', href: '/medical-file/pregnancy', icon: Scale, color: 'bg-pink-100 text-pink-600', isNew: true },
-    { name: 'إضافة أخرى', href: '/more', icon: Plus, color: 'bg-gray-100 text-gray-600', isNew: true },
+    
+    // ✅ تم التعديل: إضافة زر الدورة الشهرية بدلاً من زر "المزيد" المعطل
+    { name: 'الدورة الشهرية', href: '/medical-file/menstrual-cycle', icon: Droplet, color: 'bg-rose-50 text-rose-500', isNew: true },
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-20 font-cairo dir-rtl">
+    <div className="min-h-screen bg-slate-50 pb-20 font-cairo dir-rtl relative">
       
-      {/* --- 1. Header (Fixed Height h-16 is crucial for sticky calc) --- */}
-      <header className="bg-white px-4 h-16 sticky top-0 z-50 border-b shadow-sm flex justify-between items-center transition-all">
+      {/* --- 1. Header --- */}
+      {/* h-16 = 4rem = 64px */}
+      <header className="bg-white px-4 h-16 sticky top-0 z-50 border-b shadow-sm flex justify-between items-center transition-all will-change-transform">
         {showSearch ? (
           <div className="flex-1 flex items-center gap-2 animate-in fade-in slide-in-from-top-2">
             <input 
@@ -48,12 +55,12 @@ export default function DashboardHomePage() {
             </div>
             <div className="flex gap-2">
               <button 
-                onClick={() => setShowSearch(true)} // تفعيل البحث
+                onClick={() => setShowSearch(true)} 
                 className="w-9 h-9 flex items-center justify-center bg-slate-50 rounded-full text-slate-600 hover:bg-slate-200 transition"
               >
                 <Search size={18} />
               </button>
-              <Link href="/notifications"> {/* رابط التنبيهات */}
+              <Link href="/notifications">
                 <button className="w-9 h-9 flex items-center justify-center bg-slate-50 rounded-full text-slate-600 hover:bg-slate-200 transition relative">
                   <Bell size={18} />
                   <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>
@@ -66,7 +73,7 @@ export default function DashboardHomePage() {
 
       <main>
         
-        {/* Wrapper for scrollable content above sticky section */}
+        {/* المحتوى القابل للتمرير قبل الوصول للمقالات */}
         <div className="space-y-6 pt-4">
           
           {/* --- 2. Quick Actions Grid --- */}
@@ -79,7 +86,7 @@ export default function DashboardHomePage() {
                   className="flex flex-col items-center gap-1 group"
                 >
                   <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm transition-transform group-hover:scale-105 group-active:scale-95 relative ${action.color}`}>
-                    {action.isNew ? <Plus size={12} className="absolute top-1 right-1 opacity-50"/> : null}
+                    {action.isNew ? <Plus size={10} className="absolute top-1 right-1 opacity-60"/> : null}
                     <action.icon size={20} />
                   </div>
                   <span className="text-[10px] font-bold text-slate-700 text-center leading-tight">
@@ -110,14 +117,16 @@ export default function DashboardHomePage() {
 
         </div>
 
-        {/* --- 4. Articles Section (Sticky Fix) --- */}
-        {/* هام: لا تضع overflow-hidden هنا وإلا سيتوقف التثبيت 
-           sticky top-16 لأن الهيدر الأساسي ارتفاعه h-16 (4rem)
+        {/* --- 4. Articles Section (Fixed Sticky Logic) --- */}
+        {/* الخدعة هنا:
+            1. الهيدر الرئيسي ارتفاعه h-16 (أي 64px).
+            2. لذلك يجب أن يبدأ تثبيت هذا القسم عند top-16 بالضبط.
+            3. z-index يجب أن يكون أقل من الهيدر الرئيسي (z-50) بقليل.
         */}
         <section className="relative min-h-screen bg-white rounded-t-3xl shadow-[0_-4px_20px_rgba(0,0,0,0.05)] mt-6">
           
           {/* Sticky Header Container */}
-          <div className="sticky top-16 z-40 bg-white/95 backdrop-blur-md px-4 py-4 border-b rounded-t-3xl">
+          <div className="sticky top-16 z-40 bg-white/95 backdrop-blur-md px-4 py-4 border-b rounded-t-3xl transition-all">
             <div className="flex justify-between items-center mb-3">
               <h2 className="font-bold text-slate-800 flex items-center gap-2">
                 <FileText className="text-blue-600" size={20}/> المقالات الطبية
