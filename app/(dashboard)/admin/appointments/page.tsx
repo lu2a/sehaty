@@ -2,12 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase';
-import { Calendar, Clock, User, Phone, Stethoscope, MapPin } from 'lucide-react';
+import { Calendar, Clock, User, Phone, Stethoscope } from 'lucide-react';
 
 export default function AdminAppointments() {
   const supabase = createClient();
   const [appointments, setAppointments] = useState<any[]>([]);
-  // نستخدم visit_date حسب تسمية قاعدة البيانات
   const [filterDate, setFilterDate] = useState(new Date().toISOString().split('T')[0]);
   const [loading, setLoading] = useState(true);
 
@@ -18,9 +17,8 @@ export default function AdminAppointments() {
   const fetchAppointments = async () => {
     setLoading(true);
     
-    // استعلام معقد لجلب البيانات المرتبطة
-    const { data, error } = await supabase
-      .from('appointments')
+    // نستخدم (as any) هنا أيضاً لتجنب مشاكل العلاقات المعقدة في المستقبل
+    const { data, error } = await (supabase.from('appointments') as any)
       .select(`
         *,
         medical_files ( full_name, gender, birth_date ),
@@ -29,7 +27,7 @@ export default function AdminAppointments() {
         clinics ( name )
       `)
       .eq('visit_date', filterDate)
-      .order('visit_time', { ascending: true, nullsFirst: false }); // ترتيب حسب الوقت
+      .order('visit_time', { ascending: true, nullsFirst: false });
 
     if (error) {
       console.error('Error fetching appointments:', error);
@@ -41,7 +39,11 @@ export default function AdminAppointments() {
 
   // دالة لتحديث حالة الموعد
   const updateStatus = async (id: string, newStatus: string) => {
-    await supabase.from('appointments').update({ status: newStatus }).eq('id', id);
+    // ✅ التصحيح هنا: استخدام (as any) لتجاوز خطأ Type error
+    await (supabase.from('appointments') as any)
+      .update({ status: newStatus })
+      .eq('id', id);
+      
     fetchAppointments(); // تحديث البيانات
   };
 
@@ -107,7 +109,7 @@ export default function AdminAppointments() {
                     <td className="p-4">
                       <div className="font-bold text-gray-800">{apt.medical_files?.full_name}</div>
                       <div className="text-xs text-gray-500">
-                        {apt.medical_files?.gender === 'male' ? 'ذكر' : 'أنثى'} • {new Date().getFullYear() - new Date(apt.medical_files?.birth_date).getFullYear()} سنة
+                        {apt.medical_files?.gender === 'male' ? 'ذكر' : 'أنثى'} • {apt.medical_files?.birth_date ? new Date().getFullYear() - new Date(apt.medical_files.birth_date).getFullYear() : '--'} سنة
                       </div>
                     </td>
 
@@ -175,7 +177,15 @@ export default function AdminAppointments() {
                             </button>
                           </>
                         )}
-                        {/* يمكن إضافة زر "تعديل" لتعيين طبيب أو وقت */}
+                        {apt.status === 'confirmed' && (
+                           <button 
+                              onClick={() => updateStatus(apt.id, 'completed')}
+                              className="text-blue-600 hover:bg-blue-50 p-2 rounded-lg transition text-xs font-bold" 
+                              title="تم الكشف"
+                            >
+                              إنهاء الكشف
+                            </button>
+                        )}
                       </div>
                     </td>
 
