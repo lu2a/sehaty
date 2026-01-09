@@ -22,7 +22,7 @@ export default function AdminPricesPage() {
     price: ''
   });
 
-  // Categories List (للاختيار منها)
+  // Categories List
   const categories = [
     'كشوفات العيادات', 'التحاليل الطبية', 'الأشعة', 'الطوارئ', 'العمليات', 'خدمات تمريضية'
   ];
@@ -34,8 +34,8 @@ export default function AdminPricesPage() {
 
   const fetchPrices = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('service_prices')
+    // ✅ تصحيح: استخدام (as any)
+    const { data, error } = await (supabase.from('service_prices') as any)
       .select('*')
       .order('created_at', { ascending: false });
     
@@ -49,8 +49,8 @@ export default function AdminPricesPage() {
     if (!formData.service_name || !formData.price || !formData.category) return alert('يرجى ملء جميع الحقول');
 
     setIsSubmitting(true);
-    const { data, error } = await supabase
-      .from('service_prices')
+    // ✅ تصحيح: استخدام (as any) لتفادي خطأ الإدخال
+    const { data, error } = await (supabase.from('service_prices') as any)
       .insert([{ 
         service_name: formData.service_name, 
         category: formData.category, 
@@ -60,8 +60,8 @@ export default function AdminPricesPage() {
       .single();
 
     if (!error && data) {
-      setPrices([data, ...prices]); // Add to top
-      setFormData({ service_name: '', category: '', price: '' }); // Reset form
+      setPrices([data, ...prices]);
+      setFormData({ service_name: '', category: '', price: '' });
     } else {
       alert('حدث خطأ أثناء الإضافة: ' + error?.message);
     }
@@ -72,9 +72,15 @@ export default function AdminPricesPage() {
   const handleDelete = async (id: string) => {
     if (!confirm('هل أنت متأكد من حذف هذه الخدمة؟')) return;
     
-    const { error } = await supabase.from('service_prices').delete().eq('id', id);
+    // ✅ تصحيح: استخدام (as any)
+    const { error } = await (supabase.from('service_prices') as any)
+      .delete()
+      .eq('id', id);
+
     if (!error) {
       setPrices(prices.filter(p => p.id !== id));
+    } else {
+      alert('خطأ في الحذف: ' + error.message);
     }
   };
 
@@ -84,7 +90,7 @@ export default function AdminPricesPage() {
   );
 
   return (
-    <div className="p-6 dir-rtl font-cairo max-w-6xl mx-auto">
+    <div className="p-6 dir-rtl font-cairo max-w-6xl mx-auto min-h-screen bg-slate-50">
       
       <div className="flex justify-between items-center mb-8">
         <div>
@@ -168,48 +174,50 @@ export default function AdminPricesPage() {
 
           {/* Table */}
           <div className="bg-white rounded-2xl shadow-sm border overflow-hidden">
-            <table className="w-full text-right">
-              <thead className="bg-gray-50 text-xs font-bold text-gray-500 uppercase">
-                <tr>
-                  <th className="p-4">#</th>
-                  <th className="p-4">اسم الخدمة</th>
-                  <th className="p-4">القسم</th>
-                  <th className="p-4">السعر</th>
-                  <th className="p-4 text-center">إجراءات</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {loading ? (
-                  <tr><td colSpan={5} className="p-8 text-center text-gray-500">جاري التحميل...</td></tr>
-                ) : filteredPrices.length === 0 ? (
-                  <tr><td colSpan={5} className="p-8 text-center text-gray-500">لا توجد خدمات مسجلة</td></tr>
-                ) : (
-                  filteredPrices.map((item, index) => (
-                    <tr key={item.id} className="hover:bg-blue-50/50 transition">
-                      <td className="p-4 text-gray-400 font-mono text-xs">{index + 1}</td>
-                      <td className="p-4 font-bold text-gray-800">{item.service_name}</td>
-                      <td className="p-4">
-                        <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs font-bold border">
-                          {item.category}
-                        </span>
-                      </td>
-                      <td className="p-4 font-bold text-green-600 text-lg">
-                        {item.price} <span className="text-xs text-gray-400 font-normal">ج.م</span>
-                      </td>
-                      <td className="p-4 text-center">
-                        <button 
-                          onClick={() => handleDelete(item.id)}
-                          className="text-red-400 hover:text-red-600 hover:bg-red-50 p-2 rounded-full transition"
-                          title="حذف"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+            <div className="overflow-x-auto">
+              <table className="w-full text-right min-w-[500px]">
+                <thead className="bg-gray-50 text-xs font-bold text-gray-500 uppercase">
+                  <tr>
+                    <th className="p-4">#</th>
+                    <th className="p-4">اسم الخدمة</th>
+                    <th className="p-4">القسم</th>
+                    <th className="p-4">السعر</th>
+                    <th className="p-4 text-center">إجراءات</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {loading ? (
+                    <tr><td colSpan={5} className="p-8 text-center text-gray-500">جاري التحميل...</td></tr>
+                  ) : filteredPrices.length === 0 ? (
+                    <tr><td colSpan={5} className="p-8 text-center text-gray-500">لا توجد خدمات مسجلة</td></tr>
+                  ) : (
+                    filteredPrices.map((item, index) => (
+                      <tr key={item.id} className="hover:bg-blue-50/50 transition">
+                        <td className="p-4 text-gray-400 font-mono text-xs">{index + 1}</td>
+                        <td className="p-4 font-bold text-gray-800">{item.service_name}</td>
+                        <td className="p-4">
+                          <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs font-bold border">
+                            {item.category}
+                          </span>
+                        </td>
+                        <td className="p-4 font-bold text-green-600 text-lg">
+                          {item.price} <span className="text-xs text-gray-400 font-normal">ج.م</span>
+                        </td>
+                        <td className="p-4 text-center">
+                          <button 
+                            onClick={() => handleDelete(item.id)}
+                            className="text-red-400 hover:text-red-600 hover:bg-red-50 p-2 rounded-full transition"
+                            title="حذف"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
 
