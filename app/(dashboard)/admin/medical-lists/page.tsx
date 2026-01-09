@@ -13,7 +13,7 @@ const CATEGORIES = [
   { id: 'diagnosis', label: 'التشخيصات (Diagnosis)' },
   { id: 'lab', label: 'التحاليل (Labs)' },
   { id: 'radiology', label: 'الأشعة (Radiology)' },
-  { id: 'education', label: 'الرسائل التثقيفية (Education)' },
+  { id: 'advice', label: 'الرسائل التثقيفية (Advice)' }, // تم تعديل education إلى advice ليتطابق مع ما سبق
   { id: 'red_flag', label: 'علامات الخطورة (Red Flags)' },
 ];
 
@@ -46,9 +46,10 @@ export default function AdminMedicalLists() {
     e.preventDefault();
     if (!newItem.trim()) return;
 
+    // ✅ تصحيح: استخدام value بدلاً من item_name
     const { error } = await (supabase.from('medical_lists') as any).insert({
       category: activeTab,
-      item_name: newItem.trim()
+      value: newItem.trim() 
     });
 
     if (!error) {
@@ -100,7 +101,7 @@ export default function AdminMedicalLists() {
         // تجهيز البيانات للإدخال (Bulk Insert)
         const rowsToInsert = validItems.map(item => ({
           category: activeTab,
-          item_name: item
+          value: item // ✅ تصحيح: استخدام value بدلاً من item_name
         }));
 
         // الإدخال في Supabase
@@ -209,7 +210,7 @@ export default function AdminMedicalLists() {
 
           <div className="bg-yellow-50 p-4 rounded-lg text-xs text-yellow-800 flex gap-2">
             <AlertCircle size={16} className="shrink-0"/>
-            <p>تنبيه: تأكد من مراجعة البيانات قبل الرفع. البيانات المكررة قد يتم إضافتها (إلا إذا تم وضع قيود في قاعدة البيانات).</p>
+            <p>تنبيه: تأكد من مراجعة البيانات قبل الرفع.</p>
           </div>
 
         </div>
@@ -243,7 +244,8 @@ export default function AdminMedicalLists() {
                 <tbody className="divide-y">
                   {items.map((item) => (
                     <tr key={item.id} className="hover:bg-gray-50 group">
-                      <td className="p-3 font-medium text-gray-800">{item.item_name}</td>
+                      {/* ✅ تصحيح: عرض value بدلاً من item_name */}
+                      <td className="p-3 font-medium text-gray-800">{item.value}</td>
                       <td className="p-3 text-sm text-gray-500">
                         {new Date(item.created_at).toLocaleDateString('ar-EG')}
                       </td>
