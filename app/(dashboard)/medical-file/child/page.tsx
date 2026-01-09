@@ -2,156 +2,167 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase';
-import { Baby, Plus, Trash2, Calendar, X } from 'lucide-react';
+import { Baby, Save, Ruler, Weight, Activity } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
-export default function ChildRecordPage() {
+export default function ChildGrowthPage() {
   const supabase = createClient();
-  const [children, setChildren] = useState<any[]>([]);
-  const [isAdding, setIsAdding] = useState(false);
-  const [newChild, setNewChild] = useState({ name: '', birth_date: '', gender: 'male' });
+  const db: any = supabase; // لتجاوز أخطاء التايب
 
+  const [childrenFiles, setChildrenFiles] = useState<any[]>([]);
+  const [selectedChild, setSelectedChild] = useState<string>('');
+  const [records, setRecords] = useState<any[]>([]);
+  
+  // Form Inputs
+  const [formData, setFormData] = useState({
+    height_cm: '',
+    weight_kg: '',
+    head_circumference_cm: '',
+    vaccinations: '',
+    notes: ''
+  });
+
+  // 1. جلب قائمة الأطفال من ملفات الأسرة
   useEffect(() => {
-    fetchChildren();
-  }, []);
+    async function getChildren() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-  const fetchChildren = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      // ✅ تصحيح: استخدام (as any) لتجاوز خطأ النوع
-      const { data } = await (supabase.from('children_records') as any)
-        .select('*')
-        .eq('user_id', user.id);
-        
-      if (data) setChildren(data);
-    }
-  };
-
-  const handleAddChild = async () => {
-    if (!newChild.name || !newChild.birth_date) return alert('البيانات ناقصة');
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (user) {
-      // ✅ تصحيح: استخدام (as any) هنا أيضاً
-      const { error } = await (supabase.from('children_records') as any).insert({ 
-        ...newChild, 
-        user_id: user.id 
-      });
-
-      if (!error) {
-        setIsAdding(false);
-        setNewChild({ name: '', birth_date: '', gender: 'male' });
-        fetchChildren(); // تحديث القائمة
-      } else {
-        alert('حدث خطأ أثناء الحفظ');
+      const { data } = await db.from('medical_files')
+        .select('id, full_name, birth_date')
+        .eq('user_id', user.id)
+        .in('relation', ['son', 'daughter']); // نختار الأبناء فقط
+      
+      if (data) {
+        setChildrenFiles(data);
+        if (data.length > 0) setSelectedChild(data[0].id); // اختيار أول طفل تلقائياً
       }
     }
-  };
+    getChildren();
+  }, []);
 
-  const handleDelete = async (id: string) => {
-    if(!confirm('هل أنت متأكد من حذف السجل؟')) return;
-    
-    // ✅ تصحيح: استخدام (as any)
-    const { error } = await (supabase.from('children_records') as any)
-      .delete()
-      .eq('id', id);
+  // 2. جلب سجلات الطفل المحدد
+  useEffect(() => {
+    if (selectedChild) fetchRecords();
+  }, [selectedChild]);
 
-    if(!error) {
-        setChildren(children.filter(c => c.id !== id));
-    }
-  };
+  async function fetchRecords() {
+    const { data } = await db.from('child_growth_records')
+      .select('*')
+      .eq('medical_file_id', selectedChild)
+      .order('record_date', { ascending: true });
+    if (data) setRecords(data);
+  }
+
+  // 3. الحفظ
+  async function handleSave() {
+    if (!selectedChild || !formData.weight_kg) return alert('البيانات الأساسية مطلوبة');
+    const { data: { user } } = await supabase.auth.getUser();
+
+    await db.from('child_growth_records').insert({
+      medical_file_id: selectedChild,
+      user_id: user?.id,
+      ...formData
+    });
+
+    alert('تم حفظ بيانات النمو ✅');
+    setFormData({ height_cm: '', weight_kg: '', head_circumference_cm: '', vaccinations: '', notes: '' });
+    fetchRecords();
+  }
 
   return (
-    <div className="p-4 min-h-screen dir-rtl font-cairo max-w-lg mx-auto">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-            <Baby className="text-orange-500"/> ملفات الأطفال
-        </h1>
-        <button 
-            onClick={() => setIsAdding(!isAdding)} 
-            className="bg-orange-100 text-orange-600 p-2 rounded-full hover:bg-orange-200 transition"
+    <div className="p-4 min-h-screen dir-rtl font-cairo max-w-4xl mx-auto space-y-6">
+      <h1 className="text-2xl font-bold text-center text-blue-800 flex justify-center gap-2">
+        <Baby /> سجل نمو الأطفال
+      </h1>
+
+      {/* اختيار الطفل */}
+      <div className="bg-white p-4 rounded-xl shadow-sm border">
+        <label className="block font-bold mb-2">اختر الطفل:</label>
+        <select 
+          className="w-full p-3 border rounded-lg bg-gray-50"
+          value={selectedChild}
+          onChange={(e) => setSelectedChild(e.target.value)}
         >
-            {isAdding ? <X size={20}/> : <Plus size={20}/>}
-        </button>
+          {childrenFiles.map(child => (
+            <option key={child.id} value={child.id}>{child.full_name}</option>
+          ))}
+        </select>
+        {childrenFiles.length === 0 && <p className="text-red-500 text-sm mt-2">لا يوجد أطفال مسجلين في "ملفاتي الطبية"</p>}
       </div>
 
-      {isAdding && (
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-orange-200 mb-6 animate-in slide-in-from-top-4">
-          <h3 className="font-bold text-sm mb-3 text-orange-800">إضافة طفل جديد</h3>
-          <div className="space-y-3">
-            <div>
-                <label className="text-xs font-bold text-gray-500 mb-1 block">الاسم</label>
-                <input 
-                    type="text" 
-                    placeholder="اسم الطفل" 
-                    className="w-full p-2 border rounded-lg focus:outline-none focus:ring-1 focus:ring-orange-300" 
-                    value={newChild.name} 
-                    onChange={e => setNewChild({...newChild, name: e.target.value})} 
-                />
+      {selectedChild && (
+        <div className="grid md:grid-cols-2 gap-6">
+          
+          {/* نموذج الإدخال */}
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-blue-100 h-fit">
+            <h3 className="font-bold mb-4 text-blue-700">تسجيل قراءة جديدة</h3>
+            <div className="space-y-3">
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <label className="text-xs font-bold text-gray-500">الطول (سم)</label>
+                  <input type="number" className="w-full p-2 border rounded" value={formData.height_cm} onChange={e => setFormData({...formData, height_cm: e.target.value})} />
+                </div>
+                <div className="flex-1">
+                  <label className="text-xs font-bold text-gray-500">الوزن (كجم)</label>
+                  <input type="number" className="w-full p-2 border rounded" value={formData.weight_kg} onChange={e => setFormData({...formData, weight_kg: e.target.value})} />
+                </div>
+              </div>
+              <div>
+                 <label className="text-xs font-bold text-gray-500">محيط الرأس (سم)</label>
+                 <input type="number" className="w-full p-2 border rounded" value={formData.head_circumference_cm} onChange={e => setFormData({...formData, head_circumference_cm: e.target.value})} />
+              </div>
+              <div>
+                 <label className="text-xs font-bold text-gray-500">تطعيمات جديدة</label>
+                 <input type="text" className="w-full p-2 border rounded" placeholder="مثال: شلل الأطفال" value={formData.vaccinations} onChange={e => setFormData({...formData, vaccinations: e.target.value})} />
+              </div>
+              <textarea 
+                className="w-full p-2 border rounded h-20" 
+                placeholder="ملاحظات..." 
+                value={formData.notes} 
+                onChange={e => setFormData({...formData, notes: e.target.value})}
+              ></textarea>
+              <button onClick={handleSave} className="w-full bg-blue-600 text-white py-2 rounded-lg font-bold hover:bg-blue-700">حفظ السجل</button>
             </div>
-            <div className="flex gap-2">
-               <div className="flex-1">
-                   <label className="text-xs font-bold text-gray-500 mb-1 block">تاريخ الميلاد</label>
-                   <input 
-                        type="date" 
-                        className="w-full p-2 border rounded-lg focus:outline-none focus:ring-1 focus:ring-orange-300" 
-                        value={newChild.birth_date} 
-                        onChange={e => setNewChild({...newChild, birth_date: e.target.value})} 
-                   />
-               </div>
-               <div className="w-1/3">
-                   <label className="text-xs font-bold text-gray-500 mb-1 block">النوع</label>
-                   <select 
-                        className="w-full p-2 border rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-orange-300" 
-                        value={newChild.gender} 
-                        onChange={e => setNewChild({...newChild, gender: e.target.value})}
-                    >
-                        <option value="male">ذكر</option>
-                        <option value="female">أنثى</option>
-                   </select>
-               </div>
+          </div>
+
+          {/* الرسم البياني والجدول */}
+          <div className="space-y-6">
+            
+            {/* Chart */}
+            <div className="bg-white p-4 rounded-xl shadow-sm border h-80">
+               <h3 className="font-bold mb-2 text-sm text-gray-600">منحنى النمو (الوزن والطول)</h3>
+               <ResponsiveContainer width="100%" height="100%">
+                 <LineChart data={records}>
+                   <CartesianGrid strokeDasharray="3 3" />
+                   <XAxis dataKey="record_date" tickFormatter={(str) => new Date(str).toLocaleDateString('ar-EG')} />
+                   <YAxis yAxisId="left" />
+                   <YAxis yAxisId="right" orientation="right" />
+                   <Tooltip />
+                   <Legend />
+                   <Line yAxisId="left" type="monotone" dataKey="weight_kg" name="الوزن" stroke="#8884d8" activeDot={{ r: 8 }} />
+                   <Line yAxisId="right" type="monotone" dataKey="height_cm" name="الطول" stroke="#82ca9d" />
+                 </LineChart>
+               </ResponsiveContainer>
             </div>
-            <button 
-                onClick={handleAddChild} 
-                className="w-full bg-orange-500 text-white py-2 rounded-lg font-bold hover:bg-orange-600 transition shadow-md shadow-orange-200"
-            >
-                حفظ البيانات
-            </button>
+
+            {/* History List */}
+            <div className="bg-white p-4 rounded-xl shadow-sm border max-h-60 overflow-y-auto">
+               <h3 className="font-bold mb-2 text-sm text-gray-600">السجلات السابقة</h3>
+               {records.map((rec: any) => (
+                 <div key={rec.id} className="text-sm border-b py-2">
+                   <div className="flex justify-between font-bold">
+                     <span>📅 {new Date(rec.record_date).toLocaleDateString('ar-EG')}</span>
+                     <span>{rec.weight_kg} كجم</span>
+                   </div>
+                   {rec.vaccinations && <p className="text-green-600 text-xs mt-1">💉 {rec.vaccinations}</p>}
+                 </div>
+               ))}
+            </div>
+
           </div>
         </div>
       )}
-
-      <div className="space-y-3">
-        {children.length === 0 && !isAdding && (
-            <div className="text-center py-10 bg-slate-50 rounded-xl border border-dashed border-gray-300">
-                <Baby className="mx-auto text-gray-300 mb-2" size={40}/>
-                <p className="text-gray-400 text-sm">لا يوجد أطفال مسجلين</p>
-            </div>
-        )}
-        
-        {children.map((child) => (
-          <div key={child.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4 relative group">
-            <button 
-                onClick={() => handleDelete(child.id)} 
-                className="absolute top-3 left-3 text-gray-300 hover:text-red-500 transition"
-            >
-                <Trash2 size={16}/>
-            </button>
-            
-            <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-sm ${child.gender === 'male' ? 'bg-blue-400' : 'bg-pink-400'}`}>
-              {child.name.charAt(0)}
-            </div>
-            <div className="flex-1">
-              <h3 className="font-bold text-gray-800">{child.name}</h3>
-              <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
-                <Calendar size={12}/> {new Date(child.birth_date).toLocaleDateString('ar-EG')} 
-                <span className="bg-gray-100 px-2 py-0.5 rounded text-[10px] mr-2">
-                   {new Date().getFullYear() - new Date(child.birth_date).getFullYear()} سنوات
-                </span>
-              </p>
-            </div>
-          </div>
-        ))}
-      </div>
     </div>
   );
 }
