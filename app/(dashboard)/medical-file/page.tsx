@@ -4,9 +4,18 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase';
 import { Calendar, Heart, Save } from 'lucide-react';
 
+// 1. تعريف شكل البيانات المتوقع
+interface PregnancyData {
+  id: string;
+  user_id: string;
+  last_period_date: string;
+  expected_due_date: string;
+  current_week: number;
+}
+
 export default function PregnancyPage() {
   const supabase = createClient();
-  const [record, setRecord] = useState<any>(null);
+  const [record, setRecord] = useState<PregnancyData | null>(null);
   const [lastPeriod, setLastPeriod] = useState('');
   
   useEffect(() => {
@@ -16,20 +25,17 @@ export default function PregnancyPage() {
   const fetchRecord = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
-      // ✅ الحل الجذري: استقبال الاستجابة كاملة كـ any أولاً
-      // هذا يمنع TypeScript من فحص محتوى data
-      const response: any = await supabase
-        .from('pregnancy_records')
+      // ✅ الحل: تحويل الاستعلام بالكامل إلى (any) ثم تحديد النوع يدوياً
+      const { data } = await (supabase.from('pregnancy_records') as any)
         .select('*')
         .eq('user_id', user.id)
-        .single();
-      
-      // الآن نستخرج data من المتغير العام
-      const data = response.data;
-
+        .maybeSingle(); // نستخدم maybeSingle لتجنب الخطأ إذا لم تكن هناك بيانات
+        
       if (data) {
-        setRecord(data);
-        setLastPeriod(data.last_period_date); // لن يظهر الخطأ الآن
+        // إجبار TypeScript على اعتبار البيانات من النوع PregnancyData
+        const typedData = data as PregnancyData;
+        setRecord(typedData);
+        setLastPeriod(typedData.last_period_date);
       }
     }
   };
@@ -61,8 +67,8 @@ export default function PregnancyPage() {
       current_week: calculateWeek(lastPeriod)
     };
 
-    // ✅ استخدام التحويل هنا أيضاً لضمان قبول الجدول
-    const table: any = supabase.from('pregnancy_records');
+    // استخدام (as any) لتجاوز فحص الجدول
+    const table = supabase.from('pregnancy_records') as any;
 
     if (record) {
       await table.update(payload).eq('id', record.id);
