@@ -1,0 +1,85 @@
+'use client';
+import { useEffect, useState } from 'react';
+import { createClient } from '@/lib/supabase';
+import { Bell } from 'lucide-react';
+import Link from 'next/link';
+
+export default function NotificationsMenu() {
+  const supabase = createClient();
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [isOpen, setIsOpen] = useState(false);
+
+  useEffect(() => {
+    const fetchNotifs = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // جلب التنبيهات
+      const { data } = await supabase.from('notifications')
+        .select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(10);
+      
+      if (data) {
+        setNotifications(data);
+        setUnreadCount(data.filter(n => !n.is_read).length);
+      }
+
+      // Realtime Listener
+      const channel = supabase.channel('realtime-notifs')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` }, 
+        (payload) => {
+          setNotifications(prev => [payload.new, ...prev]);
+          setUnreadCount(prev => prev + 1);
+          // تشغيل صوت تنبيه اختياري
+          new Audio('/notification.mp3').play().catch(() => {});
+        })
+        .subscribe();
+
+      return () => { supabase.removeChannel(channel); };
+    };
+    fetchNotifs();
+  }, []);
+
+  const markAsRead = async () => {
+    setIsOpen(!isOpen);
+    if (!isOpen && unreadCount > 0) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase.from('notifications').update({ is_read: true }).eq('user_id', user.id);
+        setUnreadCount(0);
+      }
+    }
+  };
+
+  return (
+    <div className="relative">
+      <button onClick={markAsRead} className="relative p-2 text-gray-600 hover:bg-gray-100 rounded-full">
+        <Bell size={24} />
+        {unreadCount > 0 && (
+          <span className="absolute top-0 right-0 bg-red-500 text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full animate-bounce">
+            {unreadCount}
+          </span>
+        )}
+      </button>
+
+      {isOpen && (
+        <div className="absolute left-0 mt-2 w-80 bg-white border rounded-xl shadow-xl z-50 overflow-hidden">
+          <div className="p-3 border-b bg-gray-50 font-bold text-sm">التنبيهات</div>
+          <div className="max-h-80 overflow-y-auto">
+            {notifications.length === 0 ? (
+              <p className="p-4 text-center text-gray-500 text-sm">لا توجد تنبيهات جديدة</p>
+            ) : (
+              notifications.map((n) => (
+                <Link key={n.id} href={n.link || '#'} className={`block p-3 border-b hover:bg-blue-50 transition ${!n.is_read ? 'bg-blue-50/50' : ''}`}>
+                  <p className="font-bold text-sm text-gray-800">{n.title}</p>
+                  <p className="text-xs text-gray-500 mt-1">{n.message}</p>
+                  <span className="text-[10px] text-gray-400 block mt-2">{new Date(n.created_at).toLocaleTimeString('ar-EG')}</span>
+                </Link>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
