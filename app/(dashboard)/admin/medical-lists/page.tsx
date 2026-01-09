@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase';
 import * as XLSX from 'xlsx'; // مكتبة الإكسيل
 import { 
   Database, Upload, Plus, Trash2, FileSpreadsheet, 
-  Loader2, CheckCircle, AlertCircle 
+  Loader2, CheckCircle, AlertCircle, Filter 
 } from 'lucide-react';
 
 // فئات القوائم كما عرفناها في قاعدة البيانات
@@ -13,7 +13,7 @@ const CATEGORIES = [
   { id: 'diagnosis', label: 'التشخيصات (Diagnosis)' },
   { id: 'lab', label: 'التحاليل (Labs)' },
   { id: 'radiology', label: 'الأشعة (Radiology)' },
-  { id: 'advice', label: 'الرسائل التثقيفية (Advice)' }, // تم تعديل education إلى advice ليتطابق مع ما سبق
+  { id: 'advice', label: 'الرسائل التثقيفية (Advice)' },
   { id: 'red_flag', label: 'علامات الخطورة (Red Flags)' },
 ];
 
@@ -46,7 +46,6 @@ export default function AdminMedicalLists() {
     e.preventDefault();
     if (!newItem.trim()) return;
 
-    // ✅ تصحيح: استخدام value بدلاً من item_name
     const { error } = await (supabase.from('medical_lists') as any).insert({
       category: activeTab,
       value: newItem.trim() 
@@ -67,7 +66,7 @@ export default function AdminMedicalLists() {
     setItems(items.filter(i => i.id !== id));
   };
 
-  // --- 3. رفع ملف إكسيل ---
+  // --- 3. رفع ملف إكسيل (تم التصحيح) ---
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -80,35 +79,54 @@ export default function AdminMedicalLists() {
         const bstr = evt.target?.result;
         const wb = XLSX.read(bstr, { type: 'binary' });
         
-        // قراءة أول ورقة (Sheet) فقط
         const wsname = wb.SheetNames[0];
         const ws = wb.Sheets[wsname];
         
-        // تحويل البيانات إلى JSON (مصفوفة من المصفوفات)
+        // تحويل البيانات إلى مصفوفة صفوف (Array of Arrays)
         const data = XLSX.utils.sheet_to_json(ws, { header: 1 }) as any[][];
         
-        // تنظيف البيانات: نأخذ العمود الأول فقط ونتجاهل الفارغ
-        const validItems = data
-          .map(row => row[0]) // العمود الأول
-          .filter(item => item && typeof item === 'string' && item.trim().length > 0);
+        // ✅ منطق التصحيح الذكي
+        const rowsToInsert = data
+          .filter(row => row.length > 0) // تجاهل الصفوف الفارغة
+          .map(row => {
+            // الحالة 1: الملف يحتوي على عمودين (القسم، القيمة) كما في صورتك
+            // مثال: [ "diagnosis", "Common Cold" ]
+            if (row.length >= 2 && row[1]) {
+               return {
+                 category: row[0], // العمود الأول هو القسم
+                 value: row[1]     // العمود الثاني هو الاسم الصحيح
+               };
+            }
+            // الحالة 2: الملف يحتوي على عمود واحد فقط (القيمة)
+            // مثال: [ "Common Cold" ]
+            else if (row.length === 1 && row[0]) {
+               return {
+                 category: activeTab, // نستخدم التبويب المفتوح كقسم
+                 value: row[0]        // العمود الأول هو الاسم
+               };
+            }
+            return null;
+          })
+          // تنظيف البيانات (إزالة العناوين والهيدر)
+          .filter((item: any) => 
+             item && 
+             item.value && 
+             item.value !== 'القيمة' && 
+             item.value !== 'Value' &&
+             item.category !== 'القسم'
+          );
 
-        if (validItems.length === 0) {
-          alert('الملف فارغ أو لا يحتوي على نصوص في العمود الأول!');
+        if (rowsToInsert.length === 0) {
+          alert('لم يتم العثور على بيانات صالحة للرفع!');
           setUploading(false);
           return;
         }
-
-        // تجهيز البيانات للإدخال (Bulk Insert)
-        const rowsToInsert = validItems.map(item => ({
-          category: activeTab,
-          value: item // ✅ تصحيح: استخدام value بدلاً من item_name
-        }));
 
         // الإدخال في Supabase
         const { error } = await (supabase.from('medical_lists') as any).insert(rowsToInsert);
 
         if (!error) {
-          alert(`تم استيراد ${rowsToInsert.length} عنصر بنجاح ✅`);
+          alert(`تم استيراد ${rowsToInsert.length} عنصر بنجاح ✅\n(تم التعرف على الأعمدة تلقائياً)`);
           fetchItems();
         } else {
           alert('خطأ في قاعدة البيانات: ' + error.message);
@@ -116,10 +134,9 @@ export default function AdminMedicalLists() {
 
       } catch (err) {
         console.error(err);
-        alert('حدث خطأ أثناء قراءة الملف. تأكد أنه ملف Excel صالح.');
+        alert('حدث خطأ أثناء قراءة الملف.');
       }
       setUploading(false);
-      // إعادة تعيين المدخل ليسمح برفع نفس الملف مرة أخرى إذا لزم الأمر
       e.target.value = ''; 
     };
 
@@ -186,11 +203,10 @@ export default function AdminMedicalLists() {
             <h3 className="font-bold text-gray-800 mb-2 flex items-center gap-2">
               <FileSpreadsheet size={18} className="text-green-600"/> استيراد من Excel
             </h3>
-            <p className="text-xs text-gray-500 mb-4">
-              قم برفع ملف Excel (.xlsx) يحتوي على عمود واحد به الأسماء. سيتم إضافة جميع الصفوف إلى قسم 
-              <span className="font-bold text-blue-600 mx-1">
-                {CATEGORIES.find(c => c.id === activeTab)?.label}
-              </span>
+            <p className="text-xs text-gray-500 mb-4 leading-relaxed">
+              يدعم الوضعين:
+              <br/> 1. ملف بعمودين: <strong>(القسم | القيمة)</strong>
+              <br/> 2. ملف بعمود واحد: <strong>(القيمة فقط)</strong> وسيتم إضافتها للقسم الحالي.
             </p>
             
             <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition">
@@ -210,7 +226,7 @@ export default function AdminMedicalLists() {
 
           <div className="bg-yellow-50 p-4 rounded-lg text-xs text-yellow-800 flex gap-2">
             <AlertCircle size={16} className="shrink-0"/>
-            <p>تنبيه: تأكد من مراجعة البيانات قبل الرفع.</p>
+            <p>تنبيه: تأكد أن ملف الإكسيل لا يحتوي على عناوين (Headers) أو أن الصف الأول هو العنوان وسيتم تجاهله تلقائياً إذا كان اسمه "القسم" أو "القيمة".</p>
           </div>
 
         </div>
@@ -218,7 +234,7 @@ export default function AdminMedicalLists() {
         {/* Right Column: List View */}
         <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col h-[600px]">
           <div className="p-4 border-b flex justify-between items-center bg-gray-50 rounded-t-xl">
-            <h3 className="font-bold text-gray-700">العناصر الحالية ({items.length})</h3>
+            <h3 className="font-bold text-gray-700">عناصر قسم: {CATEGORIES.find(c => c.id === activeTab)?.label} ({items.length})</h3>
             <button onClick={fetchItems} className="text-xs text-blue-600 hover:underline">تحديث القائمة</button>
           </div>
           
@@ -230,13 +246,13 @@ export default function AdminMedicalLists() {
             ) : items.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-gray-400">
                 <Database size={40} className="mb-2 opacity-20"/>
-                <p>القائمة فارغة حالياً</p>
+                <p>القائمة فارغة لهذا القسم</p>
               </div>
             ) : (
               <table className="w-full text-right">
                 <thead className="text-xs text-gray-500 bg-gray-50 sticky top-0">
                   <tr>
-                    <th className="p-3">الاسم</th>
+                    <th className="p-3">الاسم (القيمة)</th>
                     <th className="p-3">تاريخ الإضافة</th>
                     <th className="p-3 w-10"></th>
                   </tr>
@@ -244,7 +260,6 @@ export default function AdminMedicalLists() {
                 <tbody className="divide-y">
                   {items.map((item) => (
                     <tr key={item.id} className="hover:bg-gray-50 group">
-                      {/* ✅ تصحيح: عرض value بدلاً من item_name */}
                       <td className="p-3 font-medium text-gray-800">{item.value}</td>
                       <td className="p-3 text-sm text-gray-500">
                         {new Date(item.created_at).toLocaleDateString('ar-EG')}
