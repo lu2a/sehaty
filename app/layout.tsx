@@ -5,19 +5,18 @@ import InstallPWA from "@/components/ui/InstallPWA";
 
 const cairo = Cairo({ subsets: ["arabic"] });
 
+// 1. إعدادات الميتاداتا
 export const metadata: Metadata = {
   title: "تطبيق صحتي",
   description: "المنصة الطبية المتكاملة",
-  // ✅ PWA Settings
   manifest: "/manifest.json",
-  themeColor: "#2563eb",
-  viewport: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0",
   icons: {
-    icon: "/icon-192x192.png", // تأكد من وضع الصور في public
-    apple: "/icon-192x192.png",
+    icon: "/icon-192x192.png",
+    apple: "/icon-192x192.png", // يفضل صورة 180x180 للآيفون لكن هذه ستعمل
   }
 };
 
+// 2. إعدادات العرض (Viewport) والألوان - يجب أن تكون منفصلة هنا
 export const viewport: Viewport = {
   themeColor: "#2563eb",
   width: "device-width",
@@ -35,6 +34,7 @@ export default function RootLayout({
     <html lang="ar" dir="rtl">
       <body className={cairo.className}>
         {children}
+        {/* مكون التثبيت يظهر فوق كل شيء */}
         <InstallPWA />
       </body>
     </html>
