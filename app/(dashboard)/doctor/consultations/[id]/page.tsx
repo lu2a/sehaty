@@ -11,6 +11,8 @@ import {
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import ChatArea from '@/components/consultation/ChatArea';
 import MedicalFileModal from '@/components/consultation/MedicalFileModal';
+// ✅ استيراد دالة التنبيهات
+import { sendNotification } from '@/utils/notifications';
 
 // --- Interfaces ---
 
@@ -48,9 +50,9 @@ interface MedicalFile {
 
 interface Consultation {
   id: string;
+  user_id: string; // ✅ معرف المريض لإرسال التنبيه له
   created_at: string;
   content: string;
-  // ✅ تمت إضافة resolved لتجنب خطأ TypeScript
   status: 'pending' | 'active' | 'referred' | 'passed' | 'closed' | 'reported' | 'resolved';
   is_emergency: boolean;
   medical_files?: MedicalFile;
@@ -202,7 +204,6 @@ const PrescriptionView = ({ data, centerSettings, onBack, onExit }: any) => {
 // --- Main Page Component ---
 export default function DoctorConsultationPage() {
   const params = useParams();
-  // التأكد من أن ID هو نص
   const id = params?.id as string;
   
   const supabase = createClient();
@@ -289,6 +290,17 @@ export default function DoctorConsultationPage() {
       alert('خطأ: ' + error.message);
       return;
     }
+
+    // ✅ إرسال تنبيه للمريض ببدء المراجعة
+    if (consultation?.user_id) {
+      await sendNotification(
+        consultation.user_id,
+        'جاري مراجعة استشارتك 👨‍⚕️',
+        `بدأ د. ${doctorProfile?.full_name} في مراجعة ملفك الآن.`,
+        `/consultations/${id}`
+      );
+    }
+
     setView('wizard');
   };
 
@@ -319,6 +331,17 @@ export default function DoctorConsultationPage() {
         .eq('id', id);
 
       setConsultation((prev: any) => ({ ...prev, status: 'closed' }));
+
+      // ✅ تنبيه للمريض
+      if (consultation?.user_id) {
+        await sendNotification(
+          consultation.user_id,
+          'تم إغلاق الاستشارة 🔒',
+          `قام الطبيب بإنهاء الاستشارة وإغلاق المحادثة.`,
+          `/consultations/${id}`
+        );
+      }
+
       alert('تم إنهاء المحادثة بنجاح.');
       
     } catch (error: any) {
@@ -344,6 +367,16 @@ export default function DoctorConsultationPage() {
     await (supabase.from('messages') as any).insert({ 
        consultation_id: id, sender_id: currentUser.id, content: systemMessage, type: 'system' 
     });
+
+    // ✅ تنبيه للمريض بالروشتة
+    if (consultation?.user_id) {
+      await sendNotification(
+        consultation.user_id,
+        'تم الرد على استشارتك ✅',
+        `قام د. ${doctorProfile?.full_name} بالرد وإصدار الروشتة. اضغط للتفاصيل.`,
+        `/consultations/${id}`
+      );
+    }
 
     setView('prescription');
   };
@@ -374,7 +407,6 @@ export default function DoctorConsultationPage() {
           ...replyData,
           patientName: consultation.medical_files?.full_name,
           patientId: consultation.medical_files?.id,
-          // ✅ تم إصلاح خطأ التاريخ هنا بإضافة الشرط
           patientAge: consultation.medical_files?.birth_date ? new Date().getFullYear() - new Date(consultation.medical_files.birth_date).getFullYear() : '--',
           doctorName: doctorProfile?.full_name || 'طبيب',
           specialty: 'باطنة عامة'
@@ -489,9 +521,9 @@ export default function DoctorConsultationPage() {
             </div>
           )}
 
-          {/* Steps 3-6 */}
+          {/* Step 3: Labs */}
           {step === 3 && (
-            <div className="space-y-4">
+            <div className="space-y-4 animate-in slide-in-from-right-8">
               <h2 className="text-xl font-bold flex items-center gap-2"><FlaskConical className="text-purple-600"/> التحاليل</h2>
               <SearchableSelect 
                 options={lists.lab || []} value="" 
@@ -501,8 +533,10 @@ export default function DoctorConsultationPage() {
               <div className="flex flex-wrap gap-2">{replyData.labs.map((l, i) => <span key={i} className="bg-purple-100 px-3 py-1 rounded-full text-sm">{l}</span>)}</div>
             </div>
           )}
+
+          {/* Step 4: Radiology */}
           {step === 4 && (
-            <div className="space-y-4">
+            <div className="space-y-4 animate-in slide-in-from-right-8">
               <h2 className="text-xl font-bold flex items-center gap-2"><AlertOctagon className="text-indigo-600"/> الأشعة</h2>
               <SearchableSelect 
                 options={lists.radiology || []} value="" 
@@ -512,8 +546,10 @@ export default function DoctorConsultationPage() {
               <div className="flex flex-wrap gap-2">{replyData.radiology.map((r, i) => <span key={i} className="bg-indigo-100 px-3 py-1 rounded-full text-sm">{r}</span>)}</div>
             </div>
           )}
+
+          {/* Step 5: Advice */}
           {step === 5 && (
-            <div className="space-y-4">
+            <div className="space-y-4 animate-in slide-in-from-right-8">
               <h2 className="text-xl font-bold flex items-center gap-2"><MessageCircle className="text-blue-600"/> النصائح</h2>
               <SearchableSelect 
                 options={lists.advice || []} value="" 
@@ -523,8 +559,10 @@ export default function DoctorConsultationPage() {
               <textarea className="w-full p-4 border rounded-xl h-40 mt-2" value={replyData.advice} onChange={e => setReplyData({...replyData, advice: e.target.value})} />
             </div>
           )}
+
+          {/* Step 6: Red Flags */}
           {step === 6 && (
-            <div className="space-y-4">
+            <div className="space-y-4 animate-in slide-in-from-right-8">
               <h2 className="text-xl font-bold flex items-center gap-2 text-red-600"><AlertTriangle/> علامات الخطر</h2>
               <SearchableSelect 
                 options={lists.red_flag || []} value="" 
@@ -537,7 +575,7 @@ export default function DoctorConsultationPage() {
 
           {/* Step 7: Finalize */}
           {step === 7 && (
-            <div className="space-y-6 text-center py-8">
+            <div className="space-y-6 text-center py-8 animate-in zoom-in-95">
               <CheckCircle size={60} className="text-green-500 mx-auto mb-4" />
               <h2 className="text-2xl font-bold text-gray-800">جاهز لإصدار الروشتة</h2>
               <div className="max-w-md mx-auto text-right">
@@ -638,7 +676,6 @@ export default function DoctorConsultationPage() {
             <div className="flex justify-between border-b pb-2"><span className="text-gray-500">الجنس</span> <b>{consultation.medical_files?.gender === 'male' ? 'ذكر' : 'أنثى'}</b></div>
             <div className="flex justify-between border-b pb-2">
               <span className="text-gray-500">العمر</span> 
-              {/* ✅ تم إصلاح خطأ Date */}
               <b>{consultation.medical_files?.birth_date ? new Date().getFullYear() - new Date(consultation.medical_files.birth_date).getFullYear() : '--'} سنة</b>
             </div>
           </div>
