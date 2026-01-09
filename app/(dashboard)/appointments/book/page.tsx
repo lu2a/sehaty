@@ -34,7 +34,9 @@ export default function BookAppointmentPage() {
 
       // جلب التخصصات
       const { data: list } = await supabase.from('medical_lists').select('value').eq('category', 'specialty');
-      if (list) setSpecialties(list.map(i => i.value));
+      
+      // ✅ التصحيح هنا: استخدام (i: any) لتعريف نوع العنصر
+      if (list) setSpecialties(list.map((i: any) => i.value));
     };
     init();
   }, []);
@@ -53,7 +55,8 @@ export default function BookAppointmentPage() {
     }
 
     try {
-      const { error } = await supabase.from('appointments').insert({
+      // استخدام as any هنا أيضاً لتفادي مشاكل الأنواع عند الإدخال
+      const { error } = await (supabase.from('appointments') as any).insert({
         user_id: user?.id,
         ...formData
       });
@@ -66,7 +69,7 @@ export default function BookAppointmentPage() {
         }
       } else {
         alert('تم حجز الموعد بنجاح! يرجى إحضار الأوراق الثبوتية عند الحضور.');
-        router.push('/appointments'); // توجيه لصفحة عرض المواعيد
+        router.push('/appointments'); // توجيه لصفحة عرض المواعيد (إن وجدت) أو الصفحة الرئيسية
       }
     } catch (err) {
       console.error(err);
@@ -75,7 +78,7 @@ export default function BookAppointmentPage() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto p-6 font-cairo dir-rtl">
+    <div className="max-w-2xl mx-auto p-6 font-cairo dir-rtl pb-20">
       <h1 className="text-2xl font-bold mb-6 text-slate-800 flex items-center gap-2">
         <Calendar className="text-blue-600"/> حجز موعد عيادة
       </h1>
