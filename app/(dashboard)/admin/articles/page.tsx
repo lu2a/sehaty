@@ -30,18 +30,22 @@ export default function ArticlesManagement() {
     if (data) setArticles(data);
   };
 
-  // --- 1. إضافة يدوية ---
+  // --- 1. إضافة يدوية (مع منع التكرار) ---
   const handleManualSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
-    const { error } = await (supabase.from('articles') as any).insert({
-      title: formData.title,
-      category: formData.category,
-      content: formData.content,
-      image_url: formData.image_url || null,
-      created_at: new Date().toISOString()
-    });
+    // ✅ تعديل: استخدام upsert بدلاً من insert
+    const { error } = await (supabase.from('articles') as any).upsert(
+      {
+        title: formData.title,
+        category: formData.category,
+        content: formData.content,
+        image_url: formData.image_url || null,
+        created_at: new Date().toISOString()
+      },
+      { onConflict: 'title', ignoreDuplicates: true } // تجاهل إذا كان العنوان موجوداً
+    );
 
     if (error) {
       alert('حدث خطأ: ' + error.message);
@@ -53,7 +57,7 @@ export default function ArticlesManagement() {
     setLoading(false);
   };
 
-  // --- 2. رفع إكسيل ---
+  // --- 2. رفع إكسيل (مع منع التكرار) ---
   const handleExcelUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -77,21 +81,23 @@ export default function ArticlesManagement() {
         }
 
         // تنسيق البيانات لتناسب قاعدة البيانات
-        // نفترض أن أعمدة الإكسيل هي: Title, Category, Content, Image
         const formattedData = data.map((row: any) => ({
           title: row['العنوان'] || row['Title'] || row['title'],
           category: row['القسم'] || row['Category'] || row['category'],
           content: row['المحتوى'] || row['Content'] || row['content'],
           image_url: row['رابط الصورة'] || row['Image'] || row['image_url'] || null,
           created_at: new Date().toISOString()
-        }));
+        })).filter((item: any) => item.title && item.content); // التأكد من وجود البيانات الأساسية
 
-        // إضافة للـ Supabase
-        const { error } = await (supabase.from('articles') as any).insert(formattedData);
+        // ✅ تعديل: استخدام upsert للإضافة الجماعية مع تجاهل المكرر
+        const { error } = await (supabase.from('articles') as any).upsert(
+          formattedData,
+          { onConflict: 'title', ignoreDuplicates: true }
+        );
 
         if (error) throw error;
 
-        alert(`تم استيراد ${formattedData.length} مقال بنجاح! 🚀`);
+        alert(`تمت المعالجة بنجاح ✅\n(تم تجاهل المقالات المكررة تلقائياً)`);
         fetchArticles();
         if (fileInputRef.current) fileInputRef.current.value = '';
 
