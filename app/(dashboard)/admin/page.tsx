@@ -4,20 +4,10 @@ import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase';
 import Link from 'next/link';
 import { 
-  Users, 
-  Stethoscope, 
-  Calendar, 
-  Activity, 
-  Building,
-  Clock,
-  CheckCircle,
-  Settings,
-  Database,
-  FileText,
-  MessageSquare,
-  ArrowLeft,
-  UserPlus,
-  BarChart3
+  Users, Stethoscope, Calendar, Activity, Building,
+  Clock, CheckCircle, Settings, Database, FileText,
+  MessageSquare, ArrowLeft, UserPlus, BarChart3,
+  Newspaper // أيقونة جديدة للمقالات
 } from 'lucide-react';
 
 export default function AdminDashboard() {
@@ -30,10 +20,9 @@ export default function AdminDashboard() {
     patients: 0,
     clinics: 0,
     pendingConsultations: 0,
-    todayAppointments: 0
+    articles: 0 // إحصائية جديدة
   });
 
-  // آخر الاستشارات
   const [recentConsults, setRecentConsults] = useState<any[]>([]);
 
   useEffect(() => {
@@ -42,20 +31,20 @@ export default function AdminDashboard() {
 
   const fetchDashboardData = async () => {
     setLoading(true);
-
     try {
-      // 1. جلب الأعداد (Promise.all لتسريع الجلب)
       const [
         { count: doctors },
         { count: patients },
-        { count: clinics }, // افترضنا وجود جدول clinics
+        { count: clinics },
         { count: pending },
+        { count: articles }, // جلب عدد المقالات
         { data: recent }
       ] = await Promise.all([
         supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'doctor'),
         supabase.from('profiles').select('*', { count: 'exact', head: true }).neq('role', 'doctor').neq('role', 'admin'),
-        supabase.from('clinics').select('*', { count: 'exact', head: true }), // تأكد من وجود جدول clinics
+        supabase.from('clinics').select('*', { count: 'exact', head: true }),
         supabase.from('consultations').select('*', { count: 'exact', head: true }).neq('status', 'closed'),
+        (supabase.from('articles') as any).select('*', { count: 'exact', head: true }), // تأكد أن الجدول موجود
         (supabase.from('consultations') as any)
           .select('*, medical_files(full_name)')
           .order('created_at', { ascending: false })
@@ -67,7 +56,7 @@ export default function AdminDashboard() {
         patients: patients || 0,
         clinics: clinics || 0,
         pendingConsultations: pending || 0,
-        todayAppointments: 0 // يمكن ربطها بجدول المواعيد لاحقاً
+        articles: articles || 0
       });
 
       if (recent) setRecentConsults(recent);
@@ -75,12 +64,20 @@ export default function AdminDashboard() {
     } catch (error) {
       console.error('Error fetching admin data:', error);
     }
-
     setLoading(false);
   };
 
-  // قائمة وحدات التحكم (بناءً على المجلدات الموجودة في الريبو)
+  // قائمة وحدات التحكم (تمت إضافة إدارة المقالات)
   const controlModules = [
+    {
+      title: 'إدارة المقالات والنصائح',
+      subtitle: 'إضافة، تعديل، ورفع إكسيل',
+      href: '/admin/articles', // رابط الصفحة الجديدة
+      icon: Newspaper,
+      color: 'text-rose-600',
+      bg: 'bg-rose-50',
+      border: 'hover:border-rose-300'
+    },
     {
       title: 'إدارة العيادات',
       subtitle: 'إضافة وتعديل التخصصات',
@@ -93,7 +90,7 @@ export default function AdminDashboard() {
     {
       title: 'الأطباء والمستخدمين',
       subtitle: 'الصلاحيات وإضافة أطباء',
-      href: '/admin/doctors', // يوجه لمجلد doctors
+      href: '/admin/doctors',
       icon: UserPlus,
       color: 'text-green-600',
       bg: 'bg-green-50',
@@ -138,7 +135,7 @@ export default function AdminDashboard() {
     {
       title: 'الإشراف والمتابعة',
       subtitle: 'سجل النشاط والتقارير',
-      href: '/admin/supervision', // موجود في الريبو
+      href: '/admin/supervision',
       icon: BarChart3,
       color: 'text-indigo-600',
       bg: 'bg-indigo-50',
@@ -171,8 +168,21 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* 1. Statistics Row (شريط الإحصائيات) */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+      {/* Statistics Row */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+        {/* ... (نفس الكروت القديمة مع تعديل الـ Grid إلى 5 أعمدة) ... */}
+        {/* سأضع الكرت الجديد للمقالات هنا */}
+        <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
+          <div>
+            <p className="text-slate-400 text-xs font-bold mb-1">المقالات المنشورة</p>
+            <h3 className="text-2xl font-bold text-slate-800">{stats.articles}</h3>
+          </div>
+          <div className="w-10 h-10 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center">
+            <Newspaper size={20} />
+          </div>
+        </div>
+
+        {/* ... بقية الكروت الموجودة في كودك الأصلي (الأطباء، العيادات، إلخ) ... */}
         <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
           <div>
             <p className="text-slate-400 text-xs font-bold mb-1">إجمالي الأطباء</p>
@@ -182,20 +192,10 @@ export default function AdminDashboard() {
             <Stethoscope size={20} />
           </div>
         </div>
-
+        
         <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
           <div>
-            <p className="text-slate-400 text-xs font-bold mb-1">عدد العيادات</p>
-            <h3 className="text-2xl font-bold text-slate-800">{stats.clinics}</h3>
-          </div>
-          <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center">
-            <Building size={20} />
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
-          <div>
-            <p className="text-slate-400 text-xs font-bold mb-1">المرضى المسجلين</p>
+            <p className="text-slate-400 text-xs font-bold mb-1">المرضى</p>
             <h3 className="text-2xl font-bold text-slate-800">{stats.patients}</h3>
           </div>
           <div className="w-10 h-10 bg-orange-50 text-orange-600 rounded-full flex items-center justify-center">
@@ -203,8 +203,7 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between relative overflow-hidden">
-           <div className="absolute top-0 right-0 w-1 h-full bg-red-500"></div>
+        <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
           <div>
             <p className="text-slate-400 text-xs font-bold mb-1">استشارات نشطة</p>
             <h3 className="text-2xl font-bold text-red-600">{stats.pendingConsultations}</h3>
@@ -213,11 +212,20 @@ export default function AdminDashboard() {
             <Activity size={20} />
           </div>
         </div>
+        
+         <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
+          <div>
+            <p className="text-slate-400 text-xs font-bold mb-1">عدد العيادات</p>
+            <h3 className="text-2xl font-bold text-slate-800">{stats.clinics}</h3>
+          </div>
+          <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center">
+            <Building size={20} />
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
-        {/* 2. Control Grid (شبكة التحكم الرئيسية) */}
+        {/* Control Grid */}
         <div className="lg:col-span-2">
            <h3 className="font-bold text-lg text-slate-800 mb-4 flex items-center gap-2">
              <Settings size={20} className="text-slate-400"/> أقسام الإدارة
@@ -243,9 +251,9 @@ export default function AdminDashboard() {
            </div>
         </div>
 
-        {/* 3. Recent Activity (النشاط الأخير) */}
+        {/* Recent Activity */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 flex flex-col h-full">
-          <div className="p-5 border-b flex justify-between items-center bg-slate-50/50 rounded-t-2xl">
+           <div className="p-5 border-b flex justify-between items-center bg-slate-50/50 rounded-t-2xl">
             <h3 className="font-bold text-slate-800 flex items-center gap-2">
               <Clock className="text-blue-500" size={18}/> آخر الاستشارات
             </h3>
@@ -286,11 +294,6 @@ export default function AdminDashboard() {
                 ))}
               </div>
             )}
-          </div>
-          <div className="p-4 border-t bg-slate-50 rounded-b-2xl">
-            <Link href="/admin/consultations" className="block w-full text-center bg-white border border-slate-200 text-slate-600 py-2 rounded-lg text-sm font-bold hover:bg-slate-50">
-              إدارة جميع الاستشارات
-            </Link>
           </div>
         </div>
 
