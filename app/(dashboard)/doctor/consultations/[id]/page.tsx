@@ -15,6 +15,9 @@ import MedicalFileModal from '@/components/consultation/MedicalFileModal';
 import { sendNotification } from '@/utils/notifications';
 
 // --- Interfaces ---
+// تعريف حالة الاستشارة ليشمل 'resolved' لمنع أخطاء التوافق
+type ConsultationStatus = 'pending' | 'active' | 'referred' | 'passed' | 'closed' | 'reported' | 'resolved';
+
 interface Consultation {
   id: string;
   user_id: string;
@@ -24,7 +27,7 @@ interface Consultation {
   signs_list?: string[];
   images_urls?: string[];
   voice_url?: string;
-  status: 'pending' | 'active' | 'referred' | 'passed' | 'closed' | 'reported' | 'resolved';
+  status: ConsultationStatus;
   is_emergency: boolean;
   clinic_id?: string;
   clinics?: { name: string };
@@ -44,23 +47,26 @@ interface ReplyData {
   notes: string;
 }
 
+// تعريف أنواع الواجهات المتاحة في الصفحة
+type ViewType = 'details' | 'wizard' | 'prescription';
+
 // --- Component: Prescription View (A4) ---
 const PrescriptionView = ({ data, onBack, onExit }: any) => {
   const handlePrint = () => window.print();
   return (
     <div className="max-w-4xl mx-auto p-4 animate-in fade-in bg-white min-h-screen font-cairo dir-rtl">
       <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4 print:hidden">
-        <button onClick={onBack} className="flex items-center gap-2 text-gray-600 bg-white px-4 py-2 rounded-lg border text-sm font-bold">
+        <button onClick={onBack} className="flex items-center gap-2 text-gray-600 bg-white px-4 py-2 rounded-lg border text-sm font-bold hover:bg-gray-50">
            العودة للتعديل
         </button>
         <div className="flex gap-2">
-          <button onClick={onExit} className="bg-slate-800 text-white px-6 py-2 rounded-lg flex items-center gap-2 text-sm font-bold">إنهاء</button>
-          <button onClick={handlePrint} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-bold">طباعة</button>
+          <button onClick={onExit} className="bg-slate-800 text-white px-6 py-2 rounded-lg flex items-center gap-2 text-sm font-bold hover:bg-slate-900">إنهاء</button>
+          <button onClick={handlePrint} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-bold hover:bg-blue-700">طباعة</button>
         </div>
       </div>
       
       {/* A4 Content */}
-      <div className="bg-white shadow-xl print:shadow-none w-full max-w-[21cm] min-h-[29.7cm] mx-auto p-[1cm] relative border print:border-none">
+      <div className="bg-white shadow-xl print:shadow-none w-full max-w-[21cm] min-h-[29.7cm] mx-auto p-[1cm] relative border print:border-none text-right dir-rtl">
          <div className="text-center border-b-2 border-gray-800 pb-4 mb-6">
             <h1 className="text-3xl font-bold text-blue-900 mb-1">المركز الطبي</h1>
             <p className="text-gray-500 text-sm">د. {data.doctorName} | {data.specialty || 'عام'}</p>
@@ -107,6 +113,7 @@ const PrescriptionView = ({ data, onBack, onExit }: any) => {
   );
 };
 
+// --- Main Page Component ---
 export default function DoctorConsultationPage() {
   const params = useParams();
   const id = params?.id as string;
@@ -119,8 +126,8 @@ export default function DoctorConsultationPage() {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [doctorProfile, setDoctorProfile] = useState<any>(null);
   
-  // ✅ التصحيح هنا: إضافة 'prescription' إلى الأنواع المسموحة
-  const [view, setView] = useState<'details' | 'wizard' | 'prescription'>('details');
+  // ✅ تعريف الحالة بشكل صريح لتجنب خطأ TypeScript
+  const [view, setView] = useState<ViewType>('details');
   
   const [showChat, setShowChat] = useState(false);
   const [showFileModal, setShowFileModal] = useState(false);
@@ -169,7 +176,7 @@ export default function DoctorConsultationPage() {
       
       if (consult) {
         setConsultation(consult as Consultation);
-        // Set Status to Active
+        // Set Status to Active if Pending
         if (consult.status === 'pending' && user) {
            await (supabase.from('consultations') as any).update({ status: 'active', doctor_id: user.id }).eq('id', id);
            
@@ -192,7 +199,7 @@ export default function DoctorConsultationPage() {
 
       setLoading(false);
 
-      // 3. Realtime Badge
+      // 3. Realtime Badge for Chat
       const channel = supabase.channel(`badge_${id}`)
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `consultation_id=eq.${id}` }, 
         (payload) => {
@@ -254,7 +261,7 @@ export default function DoctorConsultationPage() {
   return (
     <div className="bg-slate-50 min-h-screen dir-rtl font-cairo pb-24 text-slate-800">
       
-      {/* 1. Header */}
+      {/* 1. Sticky Header Bar */}
       <div className="bg-white border-b px-3 py-2 text-[10px] text-gray-500 flex justify-between items-center sticky top-0 z-20 shadow-sm">
         <div className="flex gap-3 items-center">
           <span className="flex items-center gap-1 font-bold text-gray-600"><Calendar size={10}/> {new Date(consultation.created_at).toLocaleDateString('ar-EG')}</span>
@@ -290,7 +297,7 @@ export default function DoctorConsultationPage() {
 
       <div className="px-3 space-y-3">
         
-        {/* 3. Patient Info */}
+        {/* 3. Patient Info Compact Card */}
         <div className="bg-blue-50/60 border border-blue-100 rounded-xl p-3 text-xs relative overflow-hidden">
           <div className="absolute top-0 left-0 w-1 h-full bg-blue-400"></div>
           
@@ -335,7 +342,7 @@ export default function DoctorConsultationPage() {
           </button>
         </div>
 
-        {/* 4. Details */}
+        {/* 4. Consultation Details */}
         <div className={`bg-white rounded-xl shadow-sm border p-4 transition-all ${view === 'wizard' ? 'hidden' : 'block'}`}>
           <h3 className="font-bold text-sm text-slate-800 mb-3 border-b pb-2 flex items-center gap-2">
             <FileText size={16} className="text-blue-600"/> تفاصيل الشكوى
@@ -383,7 +390,7 @@ export default function DoctorConsultationPage() {
           </div>
         </div>
 
-        {/* 5. Wizard */}
+        {/* 5. Reply Wizard (Embedded) */}
         {view === 'wizard' && (
           <div className="bg-white rounded-xl shadow-lg border border-blue-100 p-4 animate-in slide-in-from-bottom-4">
             <div className="flex justify-between items-center mb-4 border-b pb-2">
@@ -398,7 +405,7 @@ export default function DoctorConsultationPage() {
                 </div>
                 
                 <textarea 
-                    className="w-full border p-3 rounded-lg h-32 text-sm bg-gray-50 focus:bg-white transition" 
+                    className="w-full border p-3 rounded-lg h-32 text-sm bg-gray-50 focus:bg-white transition outline-none focus:ring-2 focus:ring-blue-100" 
                     placeholder="اكتب تفاصيل العلاج والملاحظات هنا..."
                     onChange={(e) => setReplyData({...replyData, advice: e.target.value})}
                 ></textarea>
@@ -412,7 +419,7 @@ export default function DoctorConsultationPage() {
 
       </div>
 
-      {/* 6. Bottom Bar */}
+      {/* 6. Sticky Bottom Action Bar */}
       {view !== 'prescription' && (
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] z-40 pb-safe safe-area-bottom">
             <div className="grid grid-cols-6 gap-1 p-2 text-[10px] font-bold text-gray-500">
@@ -472,7 +479,7 @@ export default function DoctorConsultationPage() {
         </div>
       )}
 
-      {/* --- Modals --- */}
+      {/* --- Modals & Overlays --- */}
 
       {/* Chat */}
       {showChat && (
