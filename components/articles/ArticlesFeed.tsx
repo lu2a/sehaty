@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase';
 import { 
-  Heart, MessageCircle, X, Share2, Calendar, User, ChevronRight, Filter 
+  Heart, MessageCircle, X, Share2, Calendar, User, ChevronRight, FileText 
 } from 'lucide-react';
 
 // --- Interfaces ---
@@ -42,8 +42,8 @@ export default function ArticlesFeed() {
       const { data: { user } } = await supabase.auth.getUser();
       setCurrentUser(user);
 
-      const { data } = await supabase
-        .from('articles')
+      // استخدام (as any) لتجاوز خطأ عدم وجود الجدول في الأنواع
+      const { data } = await (supabase.from('articles') as any)
         .select('*')
         .order('created_at', { ascending: false });
 
@@ -72,8 +72,7 @@ export default function ArticlesFeed() {
   const openArticle = async (article: Article) => {
     setSelectedArticle(article);
     // Fetch Comments
-    const { data } = await supabase
-      .from('article_comments')
+    const { data } = await (supabase.from('article_comments') as any)
       .select('*')
       .eq('article_id', article.id)
       .order('created_at', { ascending: false });
@@ -90,27 +89,41 @@ export default function ArticlesFeed() {
     e.stopPropagation();
     if (!currentUser) return alert('يجب تسجيل الدخول');
     
-    // Check if already liked (Optimistic UI update preferred usually, simpler here)
-    const { error } = await supabase.from('article_likes').insert({ article_id: articleId, user_id: currentUser.id });
+    // ✅ تصحيح: استخدام (as any) لتجاوز خطأ never
+    const { error } = await (supabase.from('article_likes') as any).insert({ 
+      article_id: articleId, 
+      user_id: currentUser.id 
+    });
     
     if (!error) {
-        // Update local count
+        // Update local count (Optimistic update)
         const updated = articles.map(a => a.id === articleId ? {...a, likes_count: (a.likes_count || 0) + 1} : a);
         setArticles(updated);
-        if (selectedCategory === 'الكل') setFilteredArticles(updated);
-        else setFilteredArticles(updated.filter(a => a.category === selectedCategory));
         
-        // Update DB count
-        await supabase.rpc('increment_likes', { row_id: articleId }); // Requires SQL function or simple update
+        // Update filtered list as well to reflect changes immediately
+        if (selectedCategory === 'الكل') {
+          setFilteredArticles(updated);
+        } else {
+          setFilteredArticles(updated.filter(a => a.category === selectedCategory));
+        }
+        
+        // Optional: Call RPC to update count in DB if you have created the function
+        // await supabase.rpc('increment_likes', { row_id: articleId });
     } else {
-        alert('لقد أعجبت بهذا المقال مسبقاً');
+        // إذا كان الخطأ بسبب التكرار (Unique constraint)
+        if (error.code === '23505') {
+           alert('لقد أعجبت بهذا المقال مسبقاً');
+        } else {
+           console.error(error);
+        }
     }
   };
 
   const handleSendComment = async () => {
     if (!newComment.trim() || !selectedArticle || !currentUser) return;
     
-    const { data, error } = await supabase.from('article_comments').insert({
+    // ✅ تصحيح: استخدام (as any) هنا أيضاً
+    const { data, error } = await (supabase.from('article_comments') as any).insert({
       article_id: selectedArticle.id,
       user_id: currentUser.id,
       content: newComment
@@ -126,57 +139,63 @@ export default function ArticlesFeed() {
     <div className="w-full dir-rtl font-cairo">
       
       {/* --- Filter Bar --- */}
-      <div className="flex gap-2 overflow-x-auto pb-4 mb-4 scrollbar-hide">
-        {categories.map(cat => (
-          <button
-            key={cat}
-            onClick={() => handleFilter(cat)}
-            className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition ${
-              selectedCategory === cat 
-                ? 'bg-blue-600 text-white shadow-md' 
-                : 'bg-white text-gray-600 border hover:bg-gray-50'
-            }`}
-          >
-            {cat}
-          </button>
-        ))}
-      </div>
+      {categories.length > 0 && (
+        <div className="flex gap-2 overflow-x-auto pb-4 mb-4 scrollbar-hide">
+          {categories.map(cat => (
+            <button
+              key={cat}
+              onClick={() => handleFilter(cat)}
+              className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition ${
+                selectedCategory === cat 
+                  ? 'bg-blue-600 text-white shadow-md' 
+                  : 'bg-white text-gray-600 border hover:bg-gray-50'
+              }`}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* --- Articles Grid (Cards) --- */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredArticles.map(article => (
-          <div 
-            key={article.id} 
-            onClick={() => openArticle(article)}
-            className="bg-white rounded-2xl shadow-sm border overflow-hidden cursor-pointer hover:shadow-md transition group"
-          >
-            <div className="h-40 bg-gray-200 relative overflow-hidden">
-              {article.image_url ? (
-                <img src={article.image_url} alt={article.title} className="w-full h-full object-cover group-hover:scale-105 transition duration-500" />
-              ) : (
-                <div className="flex items-center justify-center h-full text-gray-400"><FileText size={40}/></div>
-              )}
-              <span className="absolute top-2 right-2 bg-blue-600/90 text-white text-xs px-2 py-1 rounded-lg backdrop-blur-sm">
-                {article.category}
-              </span>
-            </div>
-            
-            <div className="p-4">
-              <h3 className="font-bold text-lg text-gray-800 mb-2 line-clamp-1">{article.title}</h3>
-              <p className="text-gray-500 text-sm line-clamp-2 mb-4">{article.content}</p>
+      {filteredArticles.length === 0 ? (
+        <div className="text-center py-10 text-gray-400">لا توجد مقالات حالياً</div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredArticles.map(article => (
+            <div 
+              key={article.id} 
+              onClick={() => openArticle(article)}
+              className="bg-white rounded-2xl shadow-sm border overflow-hidden cursor-pointer hover:shadow-md transition group"
+            >
+              <div className="h-40 bg-gray-200 relative overflow-hidden">
+                {article.image_url ? (
+                  <img src={article.image_url} alt={article.title} className="w-full h-full object-cover group-hover:scale-105 transition duration-500" />
+                ) : (
+                  <div className="flex items-center justify-center h-full text-gray-400"><FileText size={40}/></div>
+                )}
+                <span className="absolute top-2 right-2 bg-blue-600/90 text-white text-xs px-2 py-1 rounded-lg backdrop-blur-sm">
+                  {article.category}
+                </span>
+              </div>
               
-              <div className="flex justify-between items-center text-xs text-gray-400 border-t pt-3">
-                <span className="flex items-center gap-1"><Calendar size={12}/> {new Date(article.created_at).toLocaleDateString('ar-EG')}</span>
-                <div className="flex gap-3">
-                  <button onClick={(e) => handleLike(e, article.id)} className="flex items-center gap-1 hover:text-red-500 transition">
-                    <Heart size={14} /> {article.likes_count}
-                  </button>
+              <div className="p-4">
+                <h3 className="font-bold text-lg text-gray-800 mb-2 line-clamp-1">{article.title}</h3>
+                <p className="text-gray-500 text-sm line-clamp-2 mb-4">{article.content}</p>
+                
+                <div className="flex justify-between items-center text-xs text-gray-400 border-t pt-3">
+                  <span className="flex items-center gap-1"><Calendar size={12}/> {new Date(article.created_at).toLocaleDateString('ar-EG')}</span>
+                  <div className="flex gap-3">
+                    <button onClick={(e) => handleLike(e, article.id)} className="flex items-center gap-1 hover:text-red-500 transition group-hover:text-red-500">
+                      <Heart size={14} className={article.likes_count > 0 ? "fill-red-500 text-red-500" : ""} /> {article.likes_count || 0}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* --- Full Article View (Modal/Overlay) --- */}
       {selectedArticle && (
@@ -185,7 +204,7 @@ export default function ArticlesFeed() {
             
             {/* Header / Nav */}
             <div className="sticky top-0 bg-white/80 backdrop-blur-md border-b p-4 flex justify-between items-center z-10">
-              <button onClick={closeArticle} className="p-2 hover:bg-gray-100 rounded-full">
+              <button onClick={closeArticle} className="p-2 hover:bg-gray-100 rounded-full bg-gray-50">
                 <ChevronRight size={24} className="text-gray-700" />
               </button>
               <div className="flex gap-2">
@@ -243,7 +262,8 @@ export default function ArticlesFeed() {
                 />
                 <button 
                   onClick={handleSendComment}
-                  className="bg-blue-600 text-white px-4 rounded-xl font-bold hover:bg-blue-700"
+                  disabled={!newComment.trim()}
+                  className="bg-blue-600 text-white px-4 rounded-xl font-bold hover:bg-blue-700 disabled:opacity-50"
                 >
                   إرسال
                 </button>
