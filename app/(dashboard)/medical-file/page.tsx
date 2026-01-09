@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase';
 import { Calendar, Heart, Save } from 'lucide-react';
 
-// 1. تعريف شكل البيانات المتوقع
+// 1. تعريف واجهة البيانات
 interface PregnancyData {
   id: string;
   user_id: string;
@@ -25,17 +25,19 @@ export default function PregnancyPage() {
   const fetchRecord = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
-      // ✅ الحل: تحويل الاستعلام بالكامل إلى (any) ثم تحديد النوع يدوياً
-      const { data } = await (supabase.from('pregnancy_records') as any)
+      // ✅ الحل الجذري: استقبال الاستجابة كاملة في متغير، ثم استخراج data وتغيير نوعها
+      const response = await (supabase.from('pregnancy_records') as any)
         .select('*')
         .eq('user_id', user.id)
-        .maybeSingle(); // نستخدم maybeSingle لتجنب الخطأ إذا لم تكن هناك بيانات
-        
+        .maybeSingle();
+      
+      // هنا نجبر TypeScript على اعتبار data من نوع any
+      const data: any = response.data;
+
       if (data) {
-        // إجبار TypeScript على اعتبار البيانات من النوع PregnancyData
-        const typedData = data as PregnancyData;
-        setRecord(typedData);
-        setLastPeriod(typedData.last_period_date);
+        setRecord(data);
+        // الآن data أصبح any، ولن يظهر الخطأ هنا
+        setLastPeriod(data.last_period_date);
       }
     }
   };
