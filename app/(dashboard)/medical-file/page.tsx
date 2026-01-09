@@ -4,9 +4,18 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase';
 import { Calendar, Heart, Save } from 'lucide-react';
 
+// 1. تعريف واجهة البيانات لتجنب خطأ TypeScript
+interface PregnancyRecord {
+  id: string;
+  user_id: string;
+  last_period_date: string;
+  expected_due_date: string;
+  current_week: number;
+}
+
 export default function PregnancyPage() {
   const supabase = createClient();
-  const [record, setRecord] = useState<any>(null);
+  const [record, setRecord] = useState<PregnancyRecord | null>(null);
   const [lastPeriod, setLastPeriod] = useState('');
   
   useEffect(() => {
@@ -16,26 +25,31 @@ export default function PregnancyPage() {
   const fetchRecord = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
-      // ✅ تصحيح: استخدام (as any) لتجاوز خطأ النوع عند القراءة
-      const { data } = await (supabase.from('pregnancy_records') as any)
+      // ✅ الحل الجذري: استقبال النتيجة في متغير عام (any)
+      const response: any = await (supabase.from('pregnancy_records') as any)
         .select('*')
         .eq('user_id', user.id)
         .single();
         
+      const data = response.data;
+
       if (data) {
         setRecord(data);
+        // الآن TypeScript يعرف أن data من نوع any ولن يعترض
         setLastPeriod(data.last_period_date);
       }
     }
   };
 
   const calculateDueDate = (date: string) => {
+    if (!date) return '--';
     const result = new Date(date);
     result.setDate(result.getDate() + 280); // +40 أسبوع
     return result.toLocaleDateString('ar-EG');
   };
 
   const calculateWeek = (date: string) => {
+    if (!date) return 0;
     const start = new Date(date);
     const now = new Date();
     const diff = Math.floor((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 7));
@@ -55,12 +69,10 @@ export default function PregnancyPage() {
     };
 
     if (record) {
-      // ✅ تصحيح: استخدام (as any) عند التحديث
       await (supabase.from('pregnancy_records') as any)
         .update(payload)
         .eq('id', record.id);
     } else {
-      // ✅ تصحيح: استخدام (as any) عند الإضافة
       await (supabase.from('pregnancy_records') as any)
         .insert(payload);
     }
