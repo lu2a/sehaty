@@ -8,6 +8,8 @@ import ChoiceChips from '@/components/ui/ChoiceChips';
 import VoiceRecorder from '@/components/ui/VoiceRecorder';
 import AddFamilyMember from '@/components/medical-file/AddFamilyMember';
 import Link from 'next/link';
+// ✅ استيراد دالة التنبيهات (تأكد من إنشاء الملف)
+import { sendNotification } from '@/utils/notifications';
 
 // الخيارات الثابتة للأعراض والعلامات
 const COMMON_SYMPTOMS = ['سخونة', 'كحة', 'رشح', 'صداع', 'ألم بطن', 'غثيان', 'دوخة', 'إسهال', 'إمساك'];
@@ -20,19 +22,19 @@ export default function NewConsultation() {
   // States
   const [step, setStep] = useState(1);
   const [myFiles, setMyFiles] = useState<any[]>([]);
-  const [clinics, setClinics] = useState<any[]>([]); // قائمة العيادات من القاعدة
+  const [clinics, setClinics] = useState<any[]>([]); 
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<any>(null);
   
   // Form Data
-  const [selectedClinicId, setSelectedClinicId] = useState(''); // بدلاً من specialty نصي
+  const [selectedClinicId, setSelectedClinicId] = useState(''); 
   const [symptomsList, setSymptomsList] = useState<string[]>([]);
   const [signsList, setSignsList] = useState<string[]>([]);
   const [complaint, setComplaint] = useState('');
   const [images, setImages] = useState<string[]>([]);
   const [voiceUrl, setVoiceUrl] = useState('');
   const [consent, setConsent] = useState(false);
-  const [isUrgent, setIsUrgent] = useState(false); // للحالة الطارئة
+  const [isUrgent, setIsUrgent] = useState(false); 
   const [showAddFamily, setShowAddFamily] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -48,7 +50,6 @@ export default function NewConsultation() {
   const fetchInitialData = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     
-    // 1. جلب الملفات الطبية
     if (user) {
       const { data: files } = await supabase
         .from('medical_files')
@@ -57,7 +58,6 @@ export default function NewConsultation() {
       if (files) setMyFiles(files);
     }
 
-    // 2. جلب التخصصات (العيادات) من قاعدة البيانات
     const { data: clinicsData } = await supabase
       .from('clinics')
       .select('id, name');
@@ -70,7 +70,6 @@ export default function NewConsultation() {
     setStep(2);
   };
 
-  // دوال الإضافة اليدوية
   const addCustomItem = (text: string, setText: any, list: string[], setList: any) => {
     if (!text.trim()) return;
     if (!list.includes(text.trim())) setList([...list, text.trim()]);
@@ -93,22 +92,39 @@ export default function NewConsultation() {
     setIsSubmitting(true);
     const { data: { user } } = await supabase.auth.getUser();
 
-    // إرسال البيانات (لاحظ استخدام clinic_id بدلاً من specialty)
-    // الحل هنا: استخدام as any لتجاوز خطأ TypeScript
     const { error } = await (supabase.from('consultations') as any).insert({
       user_id: user?.id,
       medical_file_id: selectedFileId,
-      clinic_id: selectedClinicId, // الربط بالعيادة
+      clinic_id: selectedClinicId,
       content: complaint,
       symptoms_list: symptomsList,
       signs_list: signsList,
       images_urls: images,
       voice_url: voiceUrl,
       status: 'pending',
-      urgency: isUrgent ? 'high' : 'medium' // تحديد الأهمية بناءً على اختيار المريض
+      urgency: isUrgent ? 'high' : 'medium'
     });
 
     if (!error) {
+      // ✅ إرسال تنبيهات للأطباء بوجود استشارة جديدة
+      // 1. جلب الأطباء (الذين لديهم صلاحية doctor)
+      const { data: doctors } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('role', 'doctor');
+
+      // 2. إرسال التنبيه لكل طبيب
+      if (doctors && doctors.length > 0) {
+        await Promise.all(doctors.map(doc => 
+          sendNotification(
+            doc.id,
+            `استشارة جديدة ${isUrgent ? '🚨' : ''}`,
+            `يوجد طلب استشارة جديد في الانتظار من ${selectedFile?.full_name}.`,
+            '/doctor/dashboard'
+          )
+        ));
+      }
+
       router.push('/consultations?success=true');
     } else {
       alert('حدث خطأ: ' + error.message);
@@ -116,7 +132,6 @@ export default function NewConsultation() {
     setIsSubmitting(false);
   };
 
-  // دالة مساعدة لعرض القيم أو شرطة
   const displayVal = (val: any, suffix = '') => val ? `${val} ${suffix}` : '-';
 
   return (
@@ -157,7 +172,7 @@ export default function NewConsultation() {
       {step === 2 && selectedFile && (
         <div className="space-y-6 animate-in fade-in">
           
-          {/* 1. ملخص الملف الطبي الشامل (المطلوب) */}
+          {/* 1. ملخص الملف الطبي */}
           <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs text-slate-700 shadow-inner">
             <div className="flex justify-between items-start mb-3 pb-2 border-b border-slate-200">
               <h3 className="font-bold text-sm text-slate-900 flex items-center gap-2">
@@ -242,7 +257,6 @@ export default function NewConsultation() {
               />
               <button onClick={() => addCustomItem(customSymptom, setCustomSymptom, symptomsList, setSymptomsList)} className="bg-blue-600 text-white px-3 py-2 rounded-md text-sm hover:bg-blue-700 disabled:opacity-50" disabled={!customSymptom.trim()}>+</button>
             </div>
-            {/* عرض العناصر المضافة */}
             {symptomsList.filter(s => !COMMON_SYMPTOMS.includes(s)).length > 0 && (
               <div className="mt-2 flex flex-wrap gap-2">
                 {symptomsList.filter(s => !COMMON_SYMPTOMS.includes(s)).map((item, idx) => (
@@ -267,7 +281,6 @@ export default function NewConsultation() {
               />
               <button onClick={() => addCustomItem(customSign, setCustomSign, signsList, setSignsList)} className="bg-blue-600 text-white px-3 py-2 rounded-md text-sm hover:bg-blue-700 disabled:opacity-50" disabled={!customSign.trim()}>+</button>
             </div>
-             {/* عرض العناصر المضافة */}
              {signsList.filter(s => !COMMON_SIGNS.includes(s)).length > 0 && (
               <div className="mt-2 flex flex-wrap gap-2">
                 {signsList.filter(s => !COMMON_SIGNS.includes(s)).map((item, idx) => (
