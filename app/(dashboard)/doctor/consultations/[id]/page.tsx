@@ -7,7 +7,7 @@ import {
   Clock, Calendar, Stethoscope, FileText, MessageCircle, 
   CornerUpLeft, AlertOctagon, ArrowRight, CheckCircle, 
   Baby, Cigarette, Activity, Pill, Scissors, X, Mic, Image as ImageIcon,
-  ChevronDown, Phone
+  ChevronDown
 } from 'lucide-react';
 import SearchableSelect from '@/components/ui/SearchableSelect';
 import ChatArea from '@/components/consultation/ChatArea';
@@ -28,7 +28,7 @@ interface Consultation {
   is_emergency: boolean;
   clinic_id?: string;
   clinics?: { name: string };
-  medical_files?: any; // تفاصيل الملف الطبي
+  medical_files?: any;
   doctor_reply?: string;
   diagnosis?: string;
 }
@@ -45,32 +45,62 @@ interface ReplyData {
 }
 
 // --- Component: Prescription View (A4) ---
-// (نفس المكون السابق للروشتة، يتم عرضه عند الانتهاء)
-const PrescriptionView = ({ data, centerSettings, onBack, onExit }: any) => {
+const PrescriptionView = ({ data, onBack, onExit }: any) => {
   const handlePrint = () => window.print();
   return (
-    <div className="max-w-4xl mx-auto p-4 animate-in fade-in bg-white min-h-screen">
+    <div className="max-w-4xl mx-auto p-4 animate-in fade-in bg-white min-h-screen font-cairo dir-rtl">
       <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4 print:hidden">
-        <button onClick={onBack} className="flex items-center gap-2 text-gray-600 bg-white px-4 py-2 rounded-lg border">عودة للتعديل</button>
+        <button onClick={onBack} className="flex items-center gap-2 text-gray-600 bg-white px-4 py-2 rounded-lg border text-sm font-bold">
+           العودة للتعديل
+        </button>
         <div className="flex gap-2">
-          <button onClick={onExit} className="bg-slate-800 text-white px-6 py-2 rounded-lg flex items-center gap-2">إنهاء</button>
-          <button onClick={handlePrint} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2">طباعة</button>
+          <button onClick={onExit} className="bg-slate-800 text-white px-6 py-2 rounded-lg flex items-center gap-2 text-sm font-bold">إنهاء</button>
+          <button onClick={handlePrint} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-bold">طباعة</button>
         </div>
       </div>
-      {/* ... (محتوى الروشتة A4 كما هو في الكود السابق) ... */}
-      <div className="bg-white shadow-xl print:shadow-none w-full max-w-[21cm] min-h-[29.7cm] mx-auto p-[1cm] relative text-right dir-rtl font-cairo border print:border-none">
-         <h1 className="text-2xl font-bold text-center mb-4">وصفة طبية</h1>
-         <div className="border-b pb-4 mb-4">
-            <p><strong>المريض:</strong> {data.patientName}</p>
-            <p><strong>التشخيص:</strong> {data.diagnosis}</p>
+      
+      {/* A4 Content */}
+      <div className="bg-white shadow-xl print:shadow-none w-full max-w-[21cm] min-h-[29.7cm] mx-auto p-[1cm] relative border print:border-none">
+         <div className="text-center border-b-2 border-gray-800 pb-4 mb-6">
+            <h1 className="text-3xl font-bold text-blue-900 mb-1">المركز الطبي</h1>
+            <p className="text-gray-500 text-sm">د. {data.doctorName} | {data.specialty || 'عام'}</p>
          </div>
-         <ul className="space-y-4">
+
+         <div className="flex justify-between mb-8 text-sm bg-gray-50 p-4 rounded-lg border">
+            <div><strong>المريض:</strong> {data.patientName}</div>
+            <div><strong>التاريخ:</strong> {new Date().toLocaleDateString('ar-EG')}</div>
+            <div><strong>التشخيص:</strong> {data.diagnosis}</div>
+         </div>
+
+         <h3 className="text-4xl font-serif text-blue-600 italic mb-4">Rx</h3>
+         <ul className="space-y-6 mb-12">
             {data.medications.map((m:any, i:number) => (
-                <li key={i} className="font-bold text-lg">• {m.name} <span className="text-sm font-normal text-gray-600">({m.dose})</span></li>
+                <li key={i} className="border-b border-dashed pb-2">
+                    <span className="font-bold text-lg block">{m.name} <small className="text-gray-500 font-normal">({m.concentration})</small></span>
+                    <span className="text-sm text-gray-600">{m.dose} - {m.duration}</span>
+                </li>
             ))}
          </ul>
-         <div className="mt-10 pt-4 border-t text-sm text-gray-500">
-             <p>تعليمات: {data.advice}</p>
+
+         {(data.labs.length > 0 || data.radiology.length > 0) && (
+             <div className="mb-8 p-4 border rounded-xl">
+                 <h4 className="font-bold mb-2 underline">الفحوصات المطلوبة:</h4>
+                 <ul className="list-disc list-inside text-sm">
+                     {data.labs.map((l:string, i:number) => <li key={i}>{l}</li>)}
+                     {data.radiology.map((r:string, i:number) => <li key={i}>{r}</li>)}
+                 </ul>
+             </div>
+         )}
+
+         <div className="mt-10 pt-4 border-t-2 border-gray-800 text-sm text-gray-500 flex justify-between items-end">
+             <div className="w-2/3">
+                <p><strong>تعليمات:</strong> {data.advice}</p>
+                <p className="mt-1 text-xs">ميعاد المتابعة: {data.followUp || 'عند اللزوم'}</p>
+             </div>
+             <div className="text-center">
+                 <div className="h-12"></div>
+                 <p className="border-t border-dashed w-32 pt-1 font-bold">توقيع الطبيب</p>
+             </div>
          </div>
       </div>
     </div>
@@ -89,8 +119,9 @@ export default function DoctorConsultationPage() {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [doctorProfile, setDoctorProfile] = useState<any>(null);
   
-  // UI States
+  // ✅ تم تصحيح النوع هنا ليشمل 'prescription'
   const [view, setView] = useState<'details' | 'wizard' | 'prescription'>('details');
+  
   const [showChat, setShowChat] = useState(false);
   const [showFileModal, setShowFileModal] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -106,7 +137,7 @@ export default function DoctorConsultationPage() {
     diagnosis: '', medications: [], labs: [], radiology: [], advice: '', redFlags: '', followUp: '', notes: ''
   });
 
-  // Helper: Time Ago
+  // Time Ago Helper
   const getTimeAgo = (dateStr: string) => {
     const diff = new Date().getTime() - new Date(dateStr).getTime();
     const minutes = Math.floor(diff / 60000);
@@ -127,7 +158,7 @@ export default function DoctorConsultationPage() {
         setDoctorProfile(profile);
       }
 
-      // 1. جلب بيانات الاستشارة مع العلاقات
+      // 1. Fetch Consultation
       const { data: consult } = await (supabase.from('consultations') as any)
         .select(`
           *,
@@ -138,18 +169,17 @@ export default function DoctorConsultationPage() {
       
       if (consult) {
         setConsultation(consult as Consultation);
-        // تحديث الحالة إلى active عند الفتح
+        // Set Status to Active
         if (consult.status === 'pending' && user) {
            await (supabase.from('consultations') as any).update({ status: 'active', doctor_id: user.id }).eq('id', id);
            
-           // تنبيه للمريض ببدء المراجعة
            if (consult.user_id) {
              await sendNotification(consult.user_id, 'جاري المراجعة 👨‍⚕️', 'بدأ الطبيب في مراجعة ملفك.', `/consultations/${id}`);
            }
         }
       }
 
-      // 2. جلب القوائم الطبية (للوصفة)
+      // 2. Fetch Lists
       const { data: listData } = await supabase.from('medical_lists').select('*');
       if (listData) {
         const grouped = listData.reduce((acc: any, item: any) => {
@@ -162,7 +192,7 @@ export default function DoctorConsultationPage() {
 
       setLoading(false);
 
-      // 3. مراقبة الرسائل الجديدة للعداد (Badge)
+      // 3. Realtime Badge
       const channel = supabase.channel(`badge_${id}`)
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `consultation_id=eq.${id}` }, 
         (payload) => {
@@ -193,7 +223,6 @@ export default function DoctorConsultationPage() {
       updated_at: now.toISOString()
     }).eq('id', id);
 
-    // تنبيه للمريض
     if (consultation?.user_id) {
         await sendNotification(consultation.user_id, 'تم الرد ✅', 'تم إصدار الروشتة الطبية.', `/consultations/${id}`);
     }
@@ -225,7 +254,7 @@ export default function DoctorConsultationPage() {
   return (
     <div className="bg-slate-50 min-h-screen dir-rtl font-cairo pb-24 text-slate-800">
       
-      {/* 1. Sticky Header Bar (معلومات الاستشارة) */}
+      {/* 1. Header */}
       <div className="bg-white border-b px-3 py-2 text-[10px] text-gray-500 flex justify-between items-center sticky top-0 z-20 shadow-sm">
         <div className="flex gap-3 items-center">
           <span className="flex items-center gap-1 font-bold text-gray-600"><Calendar size={10}/> {new Date(consultation.created_at).toLocaleDateString('ar-EG')}</span>
@@ -239,7 +268,7 @@ export default function DoctorConsultationPage() {
         </span>
       </div>
 
-      {/* 2. Sub-Header (اسم المريض وملخص) */}
+      {/* 2. Sub-Header */}
       <div className="px-3 py-3 bg-white border-b shadow-sm mb-3">
         <div className="flex justify-between items-start">
           <div>
@@ -261,7 +290,7 @@ export default function DoctorConsultationPage() {
 
       <div className="px-3 space-y-3">
         
-        {/* 3. Patient Compact Card (معلومات طبية مختصرة) */}
+        {/* 3. Patient Info */}
         <div className="bg-blue-50/60 border border-blue-100 rounded-xl p-3 text-xs relative overflow-hidden">
           <div className="absolute top-0 left-0 w-1 h-full bg-blue-400"></div>
           
@@ -306,18 +335,16 @@ export default function DoctorConsultationPage() {
           </button>
         </div>
 
-        {/* 4. Consultation Details (المحتوى الرئيسي) */}
+        {/* 4. Details */}
         <div className={`bg-white rounded-xl shadow-sm border p-4 transition-all ${view === 'wizard' ? 'hidden' : 'block'}`}>
           <h3 className="font-bold text-sm text-slate-800 mb-3 border-b pb-2 flex items-center gap-2">
             <FileText size={16} className="text-blue-600"/> تفاصيل الشكوى
           </h3>
           
-          {/* النص */}
           <div className="bg-gray-50 p-3 rounded-lg border border-gray-100 text-sm leading-7 text-gray-800 whitespace-pre-wrap mb-4">
             {consultation.content}
           </div>
 
-          {/* Tags (الأعراض والعلامات) */}
           <div className="space-y-3">
             {(consultation.symptoms_list?.length || 0) > 0 && (
                 <div className="flex flex-wrap gap-1.5">
@@ -336,7 +363,6 @@ export default function DoctorConsultationPage() {
             )}
           </div>
 
-          {/* Media Attachments */}
           <div className="grid grid-cols-2 gap-2 mt-4">
             {consultation.images_urls?.map((img, idx) => (
               <div key={idx} className="relative group rounded-lg overflow-hidden border h-28 bg-gray-100 cursor-pointer" onClick={() => window.open(img, '_blank')}>
@@ -357,7 +383,7 @@ export default function DoctorConsultationPage() {
           </div>
         </div>
 
-        {/* 5. Reply Wizard (مدمج في الصفحة) */}
+        {/* 5. Wizard */}
         {view === 'wizard' && (
           <div className="bg-white rounded-xl shadow-lg border border-blue-100 p-4 animate-in slide-in-from-bottom-4">
             <div className="flex justify-between items-center mb-4 border-b pb-2">
@@ -371,7 +397,6 @@ export default function DoctorConsultationPage() {
                     <SearchableSelect options={lists.diagnosis || []} value={replyData.diagnosis} onChange={(v) => setReplyData({...replyData, diagnosis: v})} placeholder="اكتب التشخيص..." />
                 </div>
                 
-                {/* Simplified Input for Mobile */}
                 <textarea 
                     className="w-full border p-3 rounded-lg h-32 text-sm bg-gray-50 focus:bg-white transition" 
                     placeholder="اكتب تفاصيل العلاج والملاحظات هنا..."
@@ -387,7 +412,7 @@ export default function DoctorConsultationPage() {
 
       </div>
 
-      {/* 6. Sticky Bottom Action Bar (ثابت بالأسفل) */}
+      {/* 6. Bottom Bar */}
       {view !== 'prescription' && (
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] z-40 pb-safe safe-area-bottom">
             <div className="grid grid-cols-6 gap-1 p-2 text-[10px] font-bold text-gray-500">
@@ -449,7 +474,7 @@ export default function DoctorConsultationPage() {
 
       {/* --- Modals --- */}
 
-      {/* 1. Chat Bottom Sheet */}
+      {/* Chat */}
       {showChat && (
         <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white w-full sm:w-[500px] h-[85vh] sm:h-[600px] sm:rounded-2xl rounded-t-3xl shadow-2xl flex flex-col animate-in slide-in-from-bottom-full duration-300 overflow-hidden">
@@ -475,10 +500,10 @@ export default function DoctorConsultationPage() {
         </div>
       )}
 
-      {/* 2. Patient File Modal */}
+      {/* Patient File */}
       {showFileModal && <MedicalFileModal file={mf} onClose={() => setShowFileModal(false)} />}
 
-      {/* 3. Action Modal */}
+      {/* Action Modal */}
       {actionType && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-white rounded-2xl p-5 w-full max-w-sm animate-in zoom-in-95 shadow-2xl">
