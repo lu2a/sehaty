@@ -14,9 +14,50 @@ import ChatArea from '@/components/consultation/ChatArea';
 import MedicalFileModal from '@/components/consultation/MedicalFileModal';
 import { sendNotification } from '@/utils/notifications';
 
-// --- Interfaces ---
-// تعريف حالة الاستشارة ليشمل 'resolved' لمنع أخطاء التوافق
+// --- Interfaces & Types ---
+
+// 1. تعريف حالة العرض (View Type) - هذا هو الحل للمشكلة الرئيسية
+type ViewType = 'details' | 'wizard' | 'prescription';
+
+// 2. تعريف حالات الاستشارة
 type ConsultationStatus = 'pending' | 'active' | 'referred' | 'passed' | 'closed' | 'reported' | 'resolved';
+
+interface Medication {
+  name: string;
+  concentration: string;
+  form: string;
+  dose: string;
+  duration: string;
+}
+
+interface ReplyData {
+  diagnosis: string;
+  medications: Medication[];
+  labs: string[];
+  radiology: string[];
+  advice: string;
+  redFlags: string;
+  followUp: string;
+  notes: string;
+}
+
+interface MedicalFile {
+  id: string;
+  full_name: string;
+  birth_date: string;
+  gender: string;
+  weight?: number;
+  blood_type?: string;
+  chronic_diseases?: any;
+  chronic_diseases_details?: string;
+  surgeries?: string;
+  height?: number;
+  smoking_status?: string;
+  job?: string;
+  marital_status?: string;
+  pregnancy_status?: boolean;
+  lactation_status?: boolean;
+}
 
 interface Consultation {
   id: string;
@@ -31,24 +72,10 @@ interface Consultation {
   is_emergency: boolean;
   clinic_id?: string;
   clinics?: { name: string };
-  medical_files?: any;
+  medical_files?: MedicalFile;
   doctor_reply?: string;
   diagnosis?: string;
 }
-
-interface ReplyData {
-  diagnosis: string;
-  medications: any[];
-  labs: string[];
-  radiology: string[];
-  advice: string;
-  redFlags: string;
-  followUp: string;
-  notes: string;
-}
-
-// تعريف أنواع الواجهات المتاحة في الصفحة
-type ViewType = 'details' | 'wizard' | 'prescription';
 
 // --- Component: Prescription View (A4) ---
 const PrescriptionView = ({ data, onBack, onExit }: any) => {
@@ -80,7 +107,7 @@ const PrescriptionView = ({ data, onBack, onExit }: any) => {
 
          <h3 className="text-4xl font-serif text-blue-600 italic mb-4">Rx</h3>
          <ul className="space-y-6 mb-12">
-            {data.medications.map((m:any, i:number) => (
+            {data.medications.map((m: Medication, i: number) => (
                 <li key={i} className="border-b border-dashed pb-2">
                     <span className="font-bold text-lg block">{m.name} <small className="text-gray-500 font-normal">({m.concentration})</small></span>
                     <span className="text-sm text-gray-600">{m.dose} - {m.duration}</span>
@@ -92,8 +119,8 @@ const PrescriptionView = ({ data, onBack, onExit }: any) => {
              <div className="mb-8 p-4 border rounded-xl">
                  <h4 className="font-bold mb-2 underline">الفحوصات المطلوبة:</h4>
                  <ul className="list-disc list-inside text-sm">
-                     {data.labs.map((l:string, i:number) => <li key={i}>{l}</li>)}
-                     {data.radiology.map((r:string, i:number) => <li key={i}>{r}</li>)}
+                     {data.labs.map((l: string, i: number) => <li key={i}>{l}</li>)}
+                     {data.radiology.map((r: string, i: number) => <li key={i}>{r}</li>)}
                  </ul>
              </div>
          )}
@@ -126,7 +153,7 @@ export default function DoctorConsultationPage() {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [doctorProfile, setDoctorProfile] = useState<any>(null);
   
-  // ✅ تعريف الحالة بشكل صريح لتجنب خطأ TypeScript
+  // ✅ استخدام ViewType المحددة لتجنب خطأ التوافق
   const [view, setView] = useState<ViewType>('details');
   
   const [showChat, setShowChat] = useState(false);
@@ -390,7 +417,7 @@ export default function DoctorConsultationPage() {
           </div>
         </div>
 
-        {/* 5. Reply Wizard (Embedded) */}
+        {/* 5. Wizard */}
         {view === 'wizard' && (
           <div className="bg-white rounded-xl shadow-lg border border-blue-100 p-4 animate-in slide-in-from-bottom-4">
             <div className="flex justify-between items-center mb-4 border-b pb-2">
