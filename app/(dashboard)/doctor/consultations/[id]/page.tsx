@@ -119,7 +119,7 @@ export default function DoctorConsultationPage() {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [doctorProfile, setDoctorProfile] = useState<any>(null);
   
-  // ✅ تم تصحيح النوع هنا ليشمل 'prescription'
+  // ✅ التصحيح هنا: إضافة 'prescription' إلى الأنواع المسموحة
   const [view, setView] = useState<'details' | 'wizard' | 'prescription'>('details');
   
   const [showChat, setShowChat] = useState(false);
@@ -137,7 +137,7 @@ export default function DoctorConsultationPage() {
     diagnosis: '', medications: [], labs: [], radiology: [], advice: '', redFlags: '', followUp: '', notes: ''
   });
 
-  // Time Ago Helper
+  // Helper: Time Ago
   const getTimeAgo = (dateStr: string) => {
     const diff = new Date().getTime() - new Date(dateStr).getTime();
     const minutes = Math.floor(diff / 60000);
