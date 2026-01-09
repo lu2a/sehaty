@@ -2,22 +2,22 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase';
-import * as XLSX from 'xlsx'; // مكتبة الإكسيل
+import * as XLSX from 'xlsx'; // Excel library
 import { 
   Database, Upload, Plus, Trash2, FileSpreadsheet, 
   Loader2, CheckCircle, AlertCircle, Pill 
 } from 'lucide-react';
 
-// ✅ تحديث: إضافة فئات الأدوية للقائمة لتظهر في التبويبات
+// ✅ Define list categories (Clinical + Medications)
 const CATEGORIES = [
-  // --- القوائم السريرية ---
+  // --- Clinical Lists ---
   { id: 'diagnosis', label: 'التشخيصات (Diagnosis)' },
   { id: 'lab', label: 'التحاليل (Labs)' },
   { id: 'radiology', label: 'الأشعة (Radiology)' },
   { id: 'advice', label: 'الرسائل التثقيفية (Advice)' },
   { id: 'red_flag', label: 'علامات الخطورة (Red Flags)' },
   
-  // --- 💊 قوائم الأدوية الجديدة ---
+  // --- 💊 New Medication Lists ---
   { id: 'medication', label: 'أسماء الأدوية (Drug Names)' },
   { id: 'med_conc', label: 'التركيزات (Concentrations)' },
   { id: 'med_form', label: 'الأشكال الدوائية (Forms)' },
@@ -33,7 +33,7 @@ export default function AdminMedicalLists() {
   const [newItem, setNewItem] = useState('');
   const [uploading, setUploading] = useState(false);
 
-  // جلب البيانات عند تغيير التبويب
+  // Fetch data when tab changes
   useEffect(() => {
     fetchItems();
   }, [activeTab]);
@@ -49,15 +49,19 @@ export default function AdminMedicalLists() {
     setLoading(false);
   };
 
-  // --- 1. الإضافة اليدوية ---
+  // --- 1. Manual Add ---
   const handleAddManual = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newItem.trim()) return;
 
-    const { error } = await (supabase.from('medical_lists') as any).insert({
-      category: activeTab,
-      value: newItem.trim() 
-    });
+    // ✅ MODIFICATION: Use upsert to ignore duplicates if they exist
+    const { error } = await (supabase.from('medical_lists') as any).upsert(
+      {
+        category: activeTab,
+        value: newItem.trim() 
+      },
+      { onConflict: 'category, value', ignoreDuplicates: true }
+    );
 
     if (!error) {
       setNewItem('');
@@ -67,14 +71,14 @@ export default function AdminMedicalLists() {
     }
   };
 
-  // --- 2. الحذف ---
+  // --- 2. Delete ---
   const handleDelete = async (id: string) => {
     if (!confirm('هل أنت متأكد من الحذف؟')) return;
     await (supabase.from('medical_lists') as any).delete().eq('id', id);
     setItems(items.filter(i => i.id !== id));
   };
 
-  // --- 3. رفع ملف إكسيل (ذكي) ---
+  // --- 3. Smart Excel Upload ---
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -90,24 +94,24 @@ export default function AdminMedicalLists() {
         const wsname = wb.SheetNames[0];
         const ws = wb.Sheets[wsname];
         
-        // تحويل البيانات إلى مصفوفة صفوف (Array of Arrays)
+        // Convert data to array of arrays
         const data = XLSX.utils.sheet_to_json(ws, { header: 1 }) as any[][];
         
-        // منطق التصحيح الذكي (عمود واحد أو عمودين)
+        // Smart correction logic (two columns or one column)
         const rowsToInsert = data
           .filter(row => row.length > 0)
           .map(row => {
-            // الحالة 1: عمودين (القسم | القيمة)
+            // Case 1: Two columns (Category | Value)
             if (row.length >= 2 && row[1]) {
                return { category: row[0], value: row[1] };
             }
-            // الحالة 2: عمود واحد (القيمة فقط)
+            // Case 2: One column (Value only)
             else if (row.length === 1 && row[0]) {
                return { category: activeTab, value: row[0] };
             }
             return null;
           })
-          // تنظيف البيانات
+          // Clean data
           .filter((item: any) => 
              item && 
              item.value && 
@@ -120,11 +124,14 @@ export default function AdminMedicalLists() {
           return;
         }
 
-        // الإدخال
-        const { error } = await (supabase.from('medical_lists') as any).insert(rowsToInsert);
+        // ✅ MODIFICATION: Use upsert to ignore duplicates
+        const { error } = await (supabase.from('medical_lists') as any).upsert(
+          rowsToInsert,
+          { onConflict: 'category, value', ignoreDuplicates: true }
+        );
 
         if (!error) {
-          alert(`تم استيراد ${rowsToInsert.length} عنصر بنجاح ✅`);
+          alert(`تمت المعالجة بنجاح ✅\n(تم تجاهل أي قيم مكررة تلقائياً)`);
           fetchItems();
         } else {
           alert('خطأ في قاعدة البيانات: ' + error.message);
@@ -155,7 +162,7 @@ export default function AdminMedicalLists() {
         </div>
       </div>
 
-      {/* Tabs - تم تحديثها لتشمل الأدوية */}
+      {/* Tabs - Updated to include medications */}
       <div className="flex flex-wrap gap-2 mb-6 border-b pb-4">
         {CATEGORIES.map(cat => (
           <button
@@ -167,7 +174,7 @@ export default function AdminMedicalLists() {
                 : 'bg-white text-gray-600 hover:bg-gray-100 border'
             }`}
           >
-            {/* أيقونة مميزة للأدوية */}
+            {/* Distinct icon for medications */}
             {cat.id.startsWith('med') && <Pill size={14} className="opacity-80"/>}
             {cat.label}
           </button>
