@@ -5,16 +5,24 @@ import { createClient } from '@/lib/supabase';
 import * as XLSX from 'xlsx'; // مكتبة الإكسيل
 import { 
   Database, Upload, Plus, Trash2, FileSpreadsheet, 
-  Loader2, CheckCircle, AlertCircle, Filter 
+  Loader2, CheckCircle, AlertCircle, Pill 
 } from 'lucide-react';
 
-// فئات القوائم كما عرفناها في قاعدة البيانات
+// ✅ تحديث: إضافة فئات الأدوية للقائمة لتظهر في التبويبات
 const CATEGORIES = [
+  // --- القوائم السريرية ---
   { id: 'diagnosis', label: 'التشخيصات (Diagnosis)' },
   { id: 'lab', label: 'التحاليل (Labs)' },
   { id: 'radiology', label: 'الأشعة (Radiology)' },
   { id: 'advice', label: 'الرسائل التثقيفية (Advice)' },
   { id: 'red_flag', label: 'علامات الخطورة (Red Flags)' },
+  
+  // --- 💊 قوائم الأدوية الجديدة ---
+  { id: 'medication', label: 'أسماء الأدوية (Drug Names)' },
+  { id: 'med_conc', label: 'التركيزات (Concentrations)' },
+  { id: 'med_form', label: 'الأشكال الدوائية (Forms)' },
+  { id: 'med_dose', label: 'الجرعات (Doses)' },
+  { id: 'med_duration', label: 'مدة العلاج (Durations)' },
 ];
 
 export default function AdminMedicalLists() {
@@ -66,7 +74,7 @@ export default function AdminMedicalLists() {
     setItems(items.filter(i => i.id !== id));
   };
 
-  // --- 3. رفع ملف إكسيل (تم التصحيح) ---
+  // --- 3. رفع ملف إكسيل (ذكي) ---
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -85,35 +93,25 @@ export default function AdminMedicalLists() {
         // تحويل البيانات إلى مصفوفة صفوف (Array of Arrays)
         const data = XLSX.utils.sheet_to_json(ws, { header: 1 }) as any[][];
         
-        // ✅ منطق التصحيح الذكي
+        // منطق التصحيح الذكي (عمود واحد أو عمودين)
         const rowsToInsert = data
-          .filter(row => row.length > 0) // تجاهل الصفوف الفارغة
+          .filter(row => row.length > 0)
           .map(row => {
-            // الحالة 1: الملف يحتوي على عمودين (القسم، القيمة) كما في صورتك
-            // مثال: [ "diagnosis", "Common Cold" ]
+            // الحالة 1: عمودين (القسم | القيمة)
             if (row.length >= 2 && row[1]) {
-               return {
-                 category: row[0], // العمود الأول هو القسم
-                 value: row[1]     // العمود الثاني هو الاسم الصحيح
-               };
+               return { category: row[0], value: row[1] };
             }
-            // الحالة 2: الملف يحتوي على عمود واحد فقط (القيمة)
-            // مثال: [ "Common Cold" ]
+            // الحالة 2: عمود واحد (القيمة فقط)
             else if (row.length === 1 && row[0]) {
-               return {
-                 category: activeTab, // نستخدم التبويب المفتوح كقسم
-                 value: row[0]        // العمود الأول هو الاسم
-               };
+               return { category: activeTab, value: row[0] };
             }
             return null;
           })
-          // تنظيف البيانات (إزالة العناوين والهيدر)
+          // تنظيف البيانات
           .filter((item: any) => 
              item && 
              item.value && 
-             item.value !== 'القيمة' && 
-             item.value !== 'Value' &&
-             item.category !== 'القسم'
+             !['القيمة', 'Value', 'القسم', 'Category'].includes(item.value)
           );
 
         if (rowsToInsert.length === 0) {
@@ -122,11 +120,11 @@ export default function AdminMedicalLists() {
           return;
         }
 
-        // الإدخال في Supabase
+        // الإدخال
         const { error } = await (supabase.from('medical_lists') as any).insert(rowsToInsert);
 
         if (!error) {
-          alert(`تم استيراد ${rowsToInsert.length} عنصر بنجاح ✅\n(تم التعرف على الأعمدة تلقائياً)`);
+          alert(`تم استيراد ${rowsToInsert.length} عنصر بنجاح ✅`);
           fetchItems();
         } else {
           alert('خطأ في قاعدة البيانات: ' + error.message);
@@ -157,18 +155,20 @@ export default function AdminMedicalLists() {
         </div>
       </div>
 
-      {/* Tabs */}
+      {/* Tabs - تم تحديثها لتشمل الأدوية */}
       <div className="flex flex-wrap gap-2 mb-6 border-b pb-4">
         {CATEGORIES.map(cat => (
           <button
             key={cat.id}
             onClick={() => setActiveTab(cat.id)}
-            className={`px-4 py-2 rounded-full text-sm font-bold transition-all ${
+            className={`px-4 py-2 rounded-full text-sm font-bold transition-all flex items-center gap-2 ${
               activeTab === cat.id 
                 ? 'bg-blue-600 text-white shadow-md' 
                 : 'bg-white text-gray-600 hover:bg-gray-100 border'
             }`}
           >
+            {/* أيقونة مميزة للأدوية */}
+            {cat.id.startsWith('med') && <Pill size={14} className="opacity-80"/>}
             {cat.label}
           </button>
         ))}
@@ -188,7 +188,7 @@ export default function AdminMedicalLists() {
               <input 
                 type="text" 
                 className="flex-1 p-2 border rounded-lg outline-none focus:border-blue-500"
-                placeholder={`اكتب اسم ${CATEGORIES.find(c => c.id === activeTab)?.label.split(' ')[0]}...`}
+                placeholder={`قيمة جديدة لـ ${CATEGORIES.find(c => c.id === activeTab)?.label.split(' ')[0]}...`}
                 value={newItem}
                 onChange={e => setNewItem(e.target.value)}
               />
@@ -206,7 +206,7 @@ export default function AdminMedicalLists() {
             <p className="text-xs text-gray-500 mb-4 leading-relaxed">
               يدعم الوضعين:
               <br/> 1. ملف بعمودين: <strong>(القسم | القيمة)</strong>
-              <br/> 2. ملف بعمود واحد: <strong>(القيمة فقط)</strong> وسيتم إضافتها للقسم الحالي.
+              <br/> 2. ملف بعمود واحد: <strong>(القيمة فقط)</strong> وسيتم إضافتها للقسم الحالي: <span className="text-blue-600 font-bold">{CATEGORIES.find(c => c.id === activeTab)?.label}</span>
             </p>
             
             <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition">
@@ -226,7 +226,7 @@ export default function AdminMedicalLists() {
 
           <div className="bg-yellow-50 p-4 rounded-lg text-xs text-yellow-800 flex gap-2">
             <AlertCircle size={16} className="shrink-0"/>
-            <p>تنبيه: تأكد أن ملف الإكسيل لا يحتوي على عناوين (Headers) أو أن الصف الأول هو العنوان وسيتم تجاهله تلقائياً إذا كان اسمه "القسم" أو "القيمة".</p>
+            <p>تنبيه: سيتم تجاهل الصف الأول تلقائياً إذا كان يحتوي على كلمات مثل "القسم" أو "Value".</p>
           </div>
 
         </div>
@@ -234,7 +234,9 @@ export default function AdminMedicalLists() {
         {/* Right Column: List View */}
         <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col h-[600px]">
           <div className="p-4 border-b flex justify-between items-center bg-gray-50 rounded-t-xl">
-            <h3 className="font-bold text-gray-700">عناصر قسم: {CATEGORIES.find(c => c.id === activeTab)?.label} ({items.length})</h3>
+            <h3 className="font-bold text-gray-700">
+              {CATEGORIES.find(c => c.id === activeTab)?.label} ({items.length})
+            </h3>
             <button onClick={fetchItems} className="text-xs text-blue-600 hover:underline">تحديث القائمة</button>
           </div>
           
