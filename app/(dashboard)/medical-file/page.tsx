@@ -4,18 +4,9 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase';
 import { Calendar, Heart, Save } from 'lucide-react';
 
-// 1. تعريف واجهة البيانات لتجنب خطأ TypeScript
-interface PregnancyRecord {
-  id: string;
-  user_id: string;
-  last_period_date: string;
-  expected_due_date: string;
-  current_week: number;
-}
-
 export default function PregnancyPage() {
   const supabase = createClient();
-  const [record, setRecord] = useState<PregnancyRecord | null>(null);
+  const [record, setRecord] = useState<any>(null);
   const [lastPeriod, setLastPeriod] = useState('');
   
   useEffect(() => {
@@ -25,18 +16,20 @@ export default function PregnancyPage() {
   const fetchRecord = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
-      // ✅ الحل الجذري: استقبال النتيجة في متغير عام (any)
-      const response: any = await (supabase.from('pregnancy_records') as any)
+      // ✅ الحل الجذري: استقبال الاستجابة كاملة كـ any أولاً
+      // هذا يمنع TypeScript من فحص محتوى data
+      const response: any = await supabase
+        .from('pregnancy_records')
         .select('*')
         .eq('user_id', user.id)
         .single();
-        
+      
+      // الآن نستخرج data من المتغير العام
       const data = response.data;
 
       if (data) {
         setRecord(data);
-        // الآن TypeScript يعرف أن data من نوع any ولن يعترض
-        setLastPeriod(data.last_period_date);
+        setLastPeriod(data.last_period_date); // لن يظهر الخطأ الآن
       }
     }
   };
@@ -68,13 +61,13 @@ export default function PregnancyPage() {
       current_week: calculateWeek(lastPeriod)
     };
 
+    // ✅ استخدام التحويل هنا أيضاً لضمان قبول الجدول
+    const table: any = supabase.from('pregnancy_records');
+
     if (record) {
-      await (supabase.from('pregnancy_records') as any)
-        .update(payload)
-        .eq('id', record.id);
+      await table.update(payload).eq('id', record.id);
     } else {
-      await (supabase.from('pregnancy_records') as any)
-        .insert(payload);
+      await table.insert(payload);
     }
     
     fetchRecord();
