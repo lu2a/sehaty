@@ -8,7 +8,6 @@ import ChoiceChips from '@/components/ui/ChoiceChips';
 import VoiceRecorder from '@/components/ui/VoiceRecorder';
 import AddFamilyMember from '@/components/medical-file/AddFamilyMember';
 import Link from 'next/link';
-// ✅ استيراد دالة التنبيهات (تأكد من إنشاء الملف)
 import { sendNotification } from '@/utils/notifications';
 
 // الخيارات الثابتة للأعراض والعلامات
@@ -92,6 +91,7 @@ export default function NewConsultation() {
     setIsSubmitting(true);
     const { data: { user } } = await supabase.auth.getUser();
 
+    // إدخال الاستشارة
     const { error } = await (supabase.from('consultations') as any).insert({
       user_id: user?.id,
       medical_file_id: selectedFileId,
@@ -106,16 +106,13 @@ export default function NewConsultation() {
     });
 
     if (!error) {
-      // ✅ إرسال تنبيهات للأطباء بوجود استشارة جديدة
-      // 1. جلب الأطباء (الذين لديهم صلاحية doctor)
-      const { data: doctors } = await supabase
-        .from('profiles')
+      // ✅ تصحيح الخطأ هنا: استخدام as any مع profiles وتحديد نوع doc
+      const { data: doctors } = await (supabase.from('profiles') as any)
         .select('id')
         .eq('role', 'doctor');
 
-      // 2. إرسال التنبيه لكل طبيب
       if (doctors && doctors.length > 0) {
-        await Promise.all(doctors.map(doc => 
+        await Promise.all(doctors.map((doc: any) => 
           sendNotification(
             doc.id,
             `استشارة جديدة ${isUrgent ? '🚨' : ''}`,
