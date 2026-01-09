@@ -6,6 +6,11 @@ import { Calendar, Heart, Save } from 'lucide-react';
 
 export default function PregnancyPage() {
   const supabase = createClient();
+  
+  // ✅ الحل الجذري: إنشاء نسخة من العميل بدون أي قيود (Untyped)
+  // سنستخدم هذا المتغير (db) بدلاً من (supabase) للتعامل مع الجداول الجديدة
+  const db: any = supabase;
+
   const [record, setRecord] = useState<any>(null);
   const [lastPeriod, setLastPeriod] = useState('');
   
@@ -16,9 +21,8 @@ export default function PregnancyPage() {
   const fetchRecord = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
-      // 🔥 الحل النهائي: (supabase as any)
-      // هذا يلغي التحقق من الجداول تماماً في هذا السطر
-      const { data } = await (supabase as any)
+      // ✅ نستخدم db بدلاً من supabase
+      const { data } = await db
         .from('pregnancy_records')
         .select('*')
         .eq('user_id', user.id)
@@ -58,13 +62,11 @@ export default function PregnancyPage() {
       current_week: calculateWeek(lastPeriod)
     };
 
-    // 🔥 استخدام (supabase as any) هنا أيضاً للإضافة والتعديل
-    const query = (supabase as any).from('pregnancy_records');
-
+    // ✅ نستخدم db هنا أيضاً
     if (record) {
-      await query.update(payload).eq('id', record.id);
+      await db.from('pregnancy_records').update(payload).eq('id', record.id);
     } else {
-      await query.insert(payload);
+      await db.from('pregnancy_records').insert(payload);
     }
     
     fetchRecord();
