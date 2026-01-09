@@ -19,6 +19,8 @@ const PATIENT_ITEMS = [
   { name: 'ملفي الطبي', href: '/medical-file', icon: Activity },
   { name: 'العائلة', href: '/family', icon: Users },
   { name: 'الحاسبات', href: '/calculators', icon: Calculator },
+  // ✅ العنصر الجديد: يجمع كل صفحات المعلومات
+  { name: 'دليل المركز', href: '/center-info', icon: Info }, 
 ];
 
 // 2. قوائم الطبيب
