@@ -7,7 +7,7 @@ import BottomNav from '@/components/layout/BottomNav';
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const cookieStore = cookies();
   
-  // 1. إعداد Supabase Client (للسيرفر)
+  // 1. إعداد Supabase Client
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -18,39 +18,42 @@ export default async function DashboardLayout({ children }: { children: React.Re
     }
   );
 
-  // 2. التحقق من المستخدم الحالي (حماية الراوت)
+  // 2. التحقق من المستخدم الحالي
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect('/auth/login'); // تأكد أن مسار الدخول صحيح لديك
+    redirect('/login');
   }
 
-  // 🏁 التغيير هنا:
-  // لم نعد بحاجة لجلب بيانات البروفايل أو userRole هنا
-  // لأن الـ Sidebar أصبح مكون (Client Component) ويجلب البيانات داخلياً
+  // 3. جلب بيانات البروفايل لمعرفة الصلاحية (Admin/Doctor/Client)
+  // نستخدم maybeSingle لتجنب تحطم الموقع إذا لم يتم العثور على البروفايل
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .maybeSingle();
+
+  // تحديد الدور (الافتراضي client في حالة عدم وجود بيانات)
+  const userRole = profile?.role || 'client';
 
   return (
-    <div className="min-h-screen bg-slate-50 dir-rtl font-cairo">
+    <div className="flex flex-col md:flex-row min-h-screen bg-slate-50 dir-rtl font-cairo">
       
-      {/* 4. القائمة الجانبية */}
-      {/* لا نمرر أي props، ولا نضعه داخل div للعرض لأن السايدبار أصبح fixed */}
-      <Sidebar />
+      {/* 4. القائمة الجانبية (للكمبيوتر فقط) */}
+      {/* نمرر userRole هنا ليتم إظهار روابط الإدارة */}
+      <div className="hidden md:block w-64 flex-shrink-0 transition-all duration-300">
+        <Sidebar userRole={userRole} />
+      </div>
 
       {/* 5. المحتوى الرئيسي */}
-      {/* lg:pr-64:
-         بما أن السايدبار مثبت على اليمين وعرضه 64 (w-64)، 
-         يجب أن نعطي المحتوى padding من اليمين بنفس المقدار في الشاشات الكبيرة 
-         حتى لا يختفي المحتوى خلف السايدبار.
-      */}
-      <main className="lg:pr-64 min-h-screen w-full transition-all duration-300">
-        {/* pb-24: مسافة سفلية للموبايل عشان الشريط السفلي */}
-        <div className="p-4 md:p-8 pb-24 lg:pb-8 max-w-7xl mx-auto">
+      <main className="flex-1 w-full h-screen overflow-y-auto">
+        <div className="p-4 md:p-8 pb-24 md:pb-8 max-w-7xl mx-auto">
           {children}
         </div>
       </main>
 
       {/* 6. الشريط السفلي (للموبايل فقط) */}
-      <div className="lg:hidden">
+      <div className="md:hidden">
         <BottomNav />
       </div>
 
