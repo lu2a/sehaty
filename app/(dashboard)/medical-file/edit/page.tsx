@@ -29,7 +29,7 @@ export default function EditMedicalFilePage() {
     blood_type: '',
     smoking_status: 'non_smoker',
     is_vaccinated: false,
-    chronic_diseases: [] as string[], // مصفوفة للأمراض
+    chronic_diseases: [] as string[],
     drug_allergies_details: '',
     food_allergies_details: '',
     surgeries_details: '',
@@ -40,7 +40,6 @@ export default function EditMedicalFilePage() {
     has_birds_livestock: false,
   });
 
-  // قائمة الأمراض المزمنة للاختيار منها
   const commonDiseases = ['ضغط الدم', 'السكري', 'القلب', 'الربو', 'الكلى', 'الكبد', 'أورام'];
 
   useEffect(() => {
@@ -51,7 +50,7 @@ export default function EditMedicalFilePage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    // جلب البيانات الموجودة (إن وجدت)
+    // 1. جلب بيانات الملف الطبي (استخدمنا as any لتجاوز مشاكل الأنواع)
     const { data } = await (supabase.from('medical_files') as any)
       .select('*')
       .eq('user_id', user.id)
@@ -59,17 +58,22 @@ export default function EditMedicalFilePage() {
       .maybeSingle();
 
     if (data) {
-      // تحديث النموذج بالبيانات القادمة من قاعدة البيانات
       setFormData({
         ...formData,
         ...data,
-        // التأكد من أن chronic_diseases مصفوفة دائماً
         chronic_diseases: Array.isArray(data.chronic_diseases) ? data.chronic_diseases : []
       });
     } else {
-        // لو مفيش ملف، نحاول نجيب الاسم من البروفايل كبداية
-        const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', user.id).single();
-        if(profile) setFormData(prev => ({ ...prev, full_name: profile.full_name || '' }));
+        // 2. إذا لم يوجد ملف، نجلب الاسم من البروفايل
+        // 🔥 التعديل هنا: استخدام (as any) مع البروفايل أيضاً
+        const { data: profile } = await (supabase.from('profiles') as any)
+            .select('full_name')
+            .eq('id', user.id)
+            .single();
+            
+        if(profile) {
+            setFormData(prev => ({ ...prev, full_name: profile.full_name || '' }));
+        }
     }
     setLoading(false);
   };
@@ -94,15 +98,14 @@ export default function EditMedicalFilePage() {
     const payload = {
       ...formData,
       user_id: user.id,
-      relation: 'self', // إجبار العلاقة تكون "نفسي"
+      relation: 'self',
       updated_at: new Date().toISOString(),
     };
 
-    // نتحقق لو الملف موجود نعمل update ولو مش موجود نعمل insert
-    // بس عشان التسهيل هنعمل upsert بناءً على user_id و relation (لو الجدول عليه constraint)
-    // أو نبحث عن الـ ID الأول. الأسهل هنا البحث عن الـ ID.
+    // استخدام (as any) للتعامل مع الجدول بحرية
+    const db: any = supabase.from('medical_files');
     
-    const { data: existing } = await (supabase.from('medical_files') as any)
+    const { data: existing } = await db
       .select('id')
       .eq('user_id', user.id)
       .eq('relation', 'self')
@@ -110,16 +113,16 @@ export default function EditMedicalFilePage() {
 
     let error;
     if (existing) {
-       const res = await (supabase.from('medical_files') as any).update(payload).eq('id', existing.id);
+       const res = await db.update(payload).eq('id', existing.id);
        error = res.error;
     } else {
-       const res = await (supabase.from('medical_files') as any).insert(payload);
+       const res = await db.insert(payload);
        error = res.error;
     }
 
     if (!error) {
       alert('تم حفظ الملف الطبي بنجاح ✅');
-      router.push('/medical-file/personal'); // العودة لصفحة العرض
+      router.push('/medical-file/personal');
     } else {
       alert('حدث خطأ أثناء الحفظ!');
       console.error(error);
@@ -127,15 +130,15 @@ export default function EditMedicalFilePage() {
     setSaving(false);
   };
 
-  if (loading) return <div className="p-10 text-center">جاري تجهيز النموذج...</div>;
+  if (loading) return <div className="p-10 text-center font-bold text-gray-500">جاري تحميل البيانات...</div>;
 
   return (
     <div className="min-h-screen bg-slate-50 p-4 font-cairo dir-rtl pb-24">
       
       {/* Header */}
       <div className="flex items-center gap-2 mb-6 max-w-4xl mx-auto">
-        <Link href="/medical-file/personal" className="bg-white p-2 rounded-full shadow hover:bg-gray-50">
-          <ChevronRight size={20}/>
+        <Link href="/medical-file/personal" className="bg-white p-2 rounded-full shadow hover:bg-gray-50 transition">
+          <ChevronRight size={20} className="text-gray-600"/>
         </Link>
         <h1 className="text-xl font-bold text-slate-800">تعديل الملف الطبي</h1>
       </div>
@@ -182,7 +185,7 @@ export default function EditMedicalFilePage() {
             </div>
             <div>
               <label className="label">عدد أفراد الأسرة</label>
-              <input type="number" className="input" value={formData.family_members_count} onChange={e => setFormData({...formData, family_members_count: parseInt(e.target.value)})} />
+              <input type="number" className="input" value={formData.family_members_count} onChange={e => setFormData({...formData, family_members_count: parseInt(e.target.value) || 0})} />
             </div>
           </div>
           
@@ -312,14 +315,13 @@ export default function EditMedicalFilePage() {
         <button 
           type="submit" 
           disabled={saving}
-          className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-blue-700 shadow-lg flex justify-center items-center gap-2 disabled:opacity-50"
+          className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-blue-700 shadow-lg flex justify-center items-center gap-2 disabled:opacity-50 transition-transform active:scale-95"
         >
           {saving ? 'جاري الحفظ...' : <> <Save size={20}/> حفظ البيانات </>}
         </button>
 
       </form>
 
-      {/* Styles for this page only */}
       <style jsx>{`
         .label {
           @apply block text-sm font-bold text-gray-600 mb-1;
@@ -328,7 +330,7 @@ export default function EditMedicalFilePage() {
           @apply w-full p-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-100 bg-gray-50 focus:bg-white transition;
         }
         .checkbox-label {
-          @apply flex items-center gap-2 text-sm font-bold text-gray-700 cursor-pointer p-2 rounded hover:bg-gray-50;
+          @apply flex items-center gap-2 text-sm font-bold text-gray-700 cursor-pointer p-2 rounded hover:bg-gray-50 select-none;
         }
       `}</style>
     </div>
