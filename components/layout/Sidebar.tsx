@@ -11,13 +11,13 @@ import {
 } from 'lucide-react';
 
 export default function Sidebar() {
-  const [isOpen, setIsOpen] = useState(false); // للموبايل
+  const [isOpen, setIsOpen] = useState(false); // للتحكم في القائمة في الموبايل
   const [role, setRole] = useState<string | null>(null);
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClient();
 
-  // جلب دور المستخدم عند التحميل
+  // جلب دور المستخدم (Admin, Doctor, Client)
   useEffect(() => {
     async function getUserRole() {
       const { data: { user } } = await supabase.auth.getUser();
@@ -38,24 +38,25 @@ export default function Sidebar() {
     router.push('/auth/login');
   };
 
-  // 1. القائمة الأساسية الموحدة للجميع
+  // 1. القائمة الأساسية الموحدة لجميع المستخدمين
   const baseMenu = [
     { name: 'الرئيسية', href: '/', icon: Home },
     { name: 'استشاراتي', href: '/consultations', icon: MessageSquare },
-    { name: 'سجلاتي', href: '/vitals', icon: Activity }, // سجلات الضغط والسكر وغيرها
+    { name: 'سجلاتي', href: '/vitals', icon: Activity }, // سجلات الضغط والسكر
     { name: 'عائلتي', href: '/medical-file', icon: Users }, // قائمة أفراد الأسرة
-    { name: 'الملف الطبي', href: '/medical-file/personal', icon: FileText }, // الملف الشخصي للمستخدم
-    { name: 'دليل المركز', href: '/guide', icon: BookOpen },
+    { name: 'الملف الطبي', href: '/medical-file/personal', icon: FileText }, // الملف الشخصي
+    // ✅ تم تعديل الرابط هنا ليشير للصفحة الموجودة مسبقاً
+    { name: 'دليل المركز', href: '/center-info', icon: BookOpen }, 
     { name: 'عن التطبيق', href: '/about', icon: Info },
   ];
 
-  // 2. أزرار خاصة (إدارية)
+  // 2. أزرار خاصة بالأدوار الإدارية والطبية
   const adminButton = { name: 'لوحة القيادة', href: '/admin/dashboard', icon: LayoutDashboard };
   const doctorButton = { name: 'عيادتي', href: '/doctor/clinic', icon: Building2 };
 
   return (
     <>
-      {/* Mobile Toggle Button */}
+      {/* زر القائمة للموبايل (Hamburger Menu) */}
       <button 
         onClick={() => setIsOpen(!isOpen)}
         className="lg:hidden fixed top-4 right-4 z-50 bg-blue-600 text-white p-2 rounded-lg shadow-lg"
@@ -63,13 +64,13 @@ export default function Sidebar() {
         {isOpen ? <X size={24} /> : <Menu size={24} />}
       </button>
 
-      {/* Sidebar Container */}
+      {/* حاوية القائمة الجانبية */}
       <aside className={`
         fixed top-0 right-0 h-screen w-64 bg-white border-l shadow-xl z-40 transition-transform duration-300 ease-in-out font-cairo overflow-y-auto
         ${isOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'}
       `}>
         
-        {/* Logo Area */}
+        {/* منطقة الشعار (Logo) */}
         <div className="p-6 border-b flex flex-col items-center">
           <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 mb-3">
              <Activity size={32} />
@@ -78,15 +79,16 @@ export default function Sidebar() {
           <p className="text-xs text-slate-500">نعتني بك وبأسرتك</p>
         </div>
 
-        {/* Menu Items */}
+        {/* عناصر القائمة */}
         <nav className="p-4 space-y-2">
           
-          {/* --- المنطقة الإدارية (مميزة) --- */}
+          {/* --- المنطقة الإدارية (تظهر للمدير فقط) --- */}
           {role === 'admin' && (
-            <div className="mb-4 pb-4 border-b border-dashed">
+            <div className="mb-4 pb-4 border-b border-dashed animate-in slide-in-from-right-4">
               <p className="text-[10px] text-gray-400 font-bold px-2 mb-2">الإدارة</p>
               <Link 
                 href={adminButton.href}
+                onClick={() => setIsOpen(false)}
                 className="flex items-center gap-3 p-3 rounded-xl bg-purple-50 text-purple-700 font-bold hover:bg-purple-100 transition shadow-sm border border-purple-100"
               >
                 <adminButton.icon size={20} />
@@ -95,11 +97,13 @@ export default function Sidebar() {
             </div>
           )}
 
+          {/* --- منطقة الطبيب (تظهر للطبيب فقط) --- */}
           {role === 'doctor' && (
-            <div className="mb-4 pb-4 border-b border-dashed">
+            <div className="mb-4 pb-4 border-b border-dashed animate-in slide-in-from-right-4">
               <p className="text-[10px] text-gray-400 font-bold px-2 mb-2">الطبيب</p>
               <Link 
                 href={doctorButton.href}
+                onClick={() => setIsOpen(false)}
                 className="flex items-center gap-3 p-3 rounded-xl bg-teal-50 text-teal-700 font-bold hover:bg-teal-100 transition shadow-sm border border-teal-100"
               >
                 <doctorButton.icon size={20} />
@@ -108,14 +112,14 @@ export default function Sidebar() {
             </div>
           )}
 
-          {/* --- القائمة العامة --- */}
+          {/* --- القائمة العامة (للجميع) --- */}
           {baseMenu.map((item) => {
             const isActive = pathname === item.href;
             return (
               <Link 
                 key={item.name} 
                 href={item.href}
-                onClick={() => setIsOpen(false)} // إغلاق القائمة في الموبايل عند الضغط
+                onClick={() => setIsOpen(false)}
                 className={`
                   flex items-center gap-3 p-3 rounded-xl transition-all duration-200
                   ${isActive 
@@ -129,10 +133,10 @@ export default function Sidebar() {
             );
           })}
 
-          {/* Logout Button */}
+          {/* زر تسجيل الخروج */}
           <button 
             onClick={handleLogout}
-            className="w-full flex items-center gap-3 p-3 rounded-xl text-red-500 hover:bg-red-50 transition mt-4 font-bold"
+            className="w-full flex items-center gap-3 p-3 rounded-xl text-red-500 hover:bg-red-50 transition mt-4 font-bold border border-transparent hover:border-red-100"
           >
             <LogOut size={20} />
             تسجيل الخروج
@@ -141,7 +145,7 @@ export default function Sidebar() {
         </nav>
       </aside>
       
-      {/* Overlay for Mobile */}
+      {/* خلفية معتمة للموبايل عند فتح القائمة */}
       {isOpen && (
         <div 
           onClick={() => setIsOpen(false)}
