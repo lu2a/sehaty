@@ -22,7 +22,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect('/auth/login'); // تأكد أن مسار الدخول صحيح لديك
+    redirect('/app/auth/login'); // تأكد أن مسار الدخول صحيح لديك
   }
 
   // 🏁 التغيير هنا:
