@@ -22,16 +22,14 @@ export default function Sidebar() {
     async function getUserRole() {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        // نستخدم (as any) هنا لتجاوز المشكلة
-        // أو نقوم بتحويل data لاحقاً
+        // نستخدم (as any) هنا لتجاوز مشكلة الأنواع القديمة
         const { data } = await supabase
           .from('profiles')
           .select('role')
           .eq('id', user.id)
           .single();
         
-        // 🔥 التعديل هنا: (data as any).role
-        // هذا يحل المشكلة: Property 'role' does not exist on type 'never'
+        // استخدام (as any) لقراءة الدور
         if (data) {
            setRole((data as any).role);
         }
@@ -42,13 +40,15 @@ export default function Sidebar() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    router.push('/auth/login');
+    // ✅ تصحيح الرابط: التوجيه إلى /login بدلاً من /auth/login
+    router.push('/login');
   };
 
   const baseMenu = [
     { name: 'الرئيسية', href: '/', icon: Home },
     { name: 'استشاراتي', href: '/consultations', icon: MessageSquare },
-    { name: 'سجلاتي', href: '/vitals', icon: Activity },
+    // ✅ تصحيح الرابط: التوجيه لصفحة الضغط والسكر لأن صفحة /vitals غير موجودة
+    { name: 'سجلاتي', href: '/vitals/pressure', icon: Activity },
     { name: 'عائلتي', href: '/medical-file', icon: Users },
     { name: 'الملف الطبي', href: '/medical-file/personal', icon: FileText },
     { name: 'دليل المركز', href: '/center-info', icon: BookOpen },
